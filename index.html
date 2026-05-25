@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VLTX — Live Event & Ticket Exchange</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   ROOT TOKENS
+───────────────────────────────────────────────────────────── */
+:root {
+  --ink:      #080808;
+  --deep:     #0f0f0f;
+  --well:     #141414;
+  --surface:  #1c1c1c;
+  --line:     #282828;
+  --line2:    #333;
+  --rust:     #c94b0a;
+  --amber:    #e8880b;
+  --fire:     #ff5c00;
+  --lime:     #b5ef06;
+  --bone:     #ece5d5;
+  --stone:    #6e6860;
+  --fog:      #3a3630;
+  --danger:   #e53030;
+  --ok:       #28c76f;
+  --glow-r:   0 0 40px rgba(201,75,10,.3);
+  --glow-l:   0 0 40px rgba(181,239,6,.2);
+  --fhd:      'Bebas Neue', sans-serif;
+  --fmono:    'DM Mono', monospace;
+  --fserif:   'Playfair Display', serif;
+  --ease:     cubic-bezier(.16,1,.3,1);
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; -webkit-font-smoothing:antialiased; }
+body {
+  background:var(--ink); color:var(--bone);
+  font-family:var(--fmono); font-weight:300;
+  overflow-x:hidden; cursor:none;
+  line-height:1.5;
+}
+a { color:inherit; text-decoration:none; }
+button,select { cursor:none; font-family:var(--fmono); }
+::-webkit-scrollbar { width:3px; }
+::-webkit-scrollbar-track { background:var(--ink); }
+::-webkit-scrollbar-thumb { background:var(--rust); }
+
+/* ─────────────────────────────────────────────────────────────
+   CURSOR
+───────────────────────────────────────────────────────────── */
+#cur-dot, #cur-ring {
+  position:fixed; top:0; left:0;
+  pointer-events:none; z-index:9999;
+  border-radius:50%; will-change:transform;
+}
+#cur-dot {
+  width:8px; height:8px;
+  background:var(--lime);
+  transform:translate(-50%,-50%);
+  mix-blend-mode:difference;
+  transition:width .18s var(--ease), height .18s var(--ease);
+}
+#cur-ring {
+  width:32px; height:32px;
+  border:1px solid rgba(232,136,11,.6);
+  transform:translate(-50%,-50%);
+  transition:width .3s var(--ease), height .3s var(--ease), border-color .2s;
+}
+body.hovering #cur-dot  { width:20px; height:20px; }
+body.hovering #cur-ring { width:52px; height:52px; border-color:var(--lime); }
+
+/* ─────────────────────────────────────────────────────────────
+   NOISE LAYER
+───────────────────────────────────────────────────────────── */
+#noise-layer {
+  position:fixed; inset:0; z-index:9000;
+  pointer-events:none; opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ─────────────────────────────────────────────────────────────
+   UTILITY
+───────────────────────────────────────────────────────────── */
+.wrap { max-width:1360px; margin:0 auto; padding:0 32px; }
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+
+.tag {
+  display:inline-block; font-size:.6rem; letter-spacing:.16em;
+  text-transform:uppercase; padding:3px 9px; border-radius:1px;
+  line-height:1.6;
+}
+.tag-r  { background:var(--rust);  color:#fff; }
+.tag-l  { background:var(--lime);  color:var(--ink); font-weight:500; }
+.tag-a  { background:var(--amber); color:var(--ink); }
+.tag-g  { border:1px solid var(--line2); color:var(--stone); }
+
+/* Buttons */
+.btn {
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:var(--fmono); font-size:.72rem; letter-spacing:.1em;
+  text-transform:uppercase; padding:11px 24px; border-radius:2px;
+  border:none; transition:all .22s var(--ease); white-space:nowrap;
+  position:relative; overflow:hidden;
+}
+.btn::after {
+  content:''; position:absolute; inset:0;
+  background:rgba(255,255,255,.06);
+  opacity:0; transition:opacity .2s;
+}
+.btn:hover::after { opacity:1; }
+.btn-r { background:var(--rust); color:#fff; }
+.btn-r:hover { background:var(--amber); box-shadow:var(--glow-r); transform:translateY(-2px); }
+.btn-l { background:var(--lime); color:var(--ink); font-weight:500; }
+.btn-l:hover { background:#ccff00; box-shadow:var(--glow-l); transform:translateY(-2px); }
+.btn-o { background:transparent; border:1px solid var(--line2); color:var(--bone); }
+.btn-o:hover { border-color:var(--bone); transform:translateY(-1px); }
+.btn-blk { background:var(--surface); border:1px solid var(--line); color:var(--bone); }
+.btn-blk:hover { border-color:var(--rust); }
+
+/* Section chrome */
+.sec-label {
+  font-size:.62rem; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--lime); display:flex; align-items:center; gap:10px;
+  margin-bottom:14px;
+}
+.sec-label::before { content:''; width:28px; height:1px; background:var(--lime); }
+.sec-title {
+  font-family:var(--fhd); font-size:clamp(2.4rem,4vw,3.8rem);
+  line-height:.96; letter-spacing:.01em;
+}
+.sec-head {
+  display:flex; align-items:flex-end; justify-content:space-between;
+  padding-bottom:22px; margin-bottom:40px;
+  border-bottom:1px solid var(--line);
+}
+.view-all {
+  font-size:.68rem; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--rust); display:inline-flex; align-items:center; gap:6px;
+  transition:gap .2s var(--ease);
+}
+.view-all:hover { gap:13px; }
+
+/* ─────────────────────────────────────────────────────────────
+   TOPBAR TICKER
+───────────────────────────────────────────────────────────── */
+.topbar {
+  background:var(--rust); height:34px;
+  display:flex; align-items:center; overflow:hidden;
+  position:relative;
+}
+.topbar::before,.topbar::after {
+  content:''; position:absolute; top:0; bottom:0; width:40px; z-index:2;
+}
+.topbar::before { left:0;  background:linear-gradient(to right, var(--rust), transparent); }
+.topbar::after  { right:0; background:linear-gradient(to left,  var(--rust), transparent); }
+.ticker-track {
+  display:flex; gap:0; white-space:nowrap;
+  animation:tick 34s linear infinite;
+}
+.ticker-track:hover { animation-play-state:paused; }
+@keyframes tick { to { transform:translateX(-50%); } }
+.ticker-item {
+  font-size:.68rem; letter-spacing:.1em; color:#fff;
+  padding:0 36px; display:flex; align-items:center; gap:8px;
+  border-right:1px solid rgba(255,255,255,.2);
+}
+.ticker-dot { width:5px; height:5px; border-radius:50%; background:#fff; opacity:.7; }
+
+/* ─────────────────────────────────────────────────────────────
+   NAVIGATION
+───────────────────────────────────────────────────────────── */
+.nav {
+  position:sticky; top:0; z-index:800;
+  background:rgba(8,8,8,.94);
+  backdrop-filter:blur(22px) saturate(1.4);
+  border-bottom:1px solid var(--line);
+}
+.nav-inner {
+  max-width:1360px; margin:0 auto; padding:0 32px;
+  display:flex; align-items:center; height:62px; gap:40px;
+}
+.logo {
+  font-family:var(--fhd); font-size:1.9rem; letter-spacing:.06em;
+  flex-shrink:0;
+}
+.logo span { color:var(--lime); }
+.nav-links {
+  display:flex; gap:28px; list-style:none; flex:1;
+  font-size:.7rem; letter-spacing:.1em; text-transform:uppercase;
+}
+.nav-links a { color:var(--stone); transition:color .18s; position:relative; padding-bottom:2px; }
+.nav-links a::after {
+  content:''; position:absolute; bottom:0; left:0;
+  width:0; height:1px; background:var(--lime);
+  transition:width .25s var(--ease);
+}
+.nav-links a:hover { color:var(--bone); }
+.nav-links a:hover::after { width:100%; }
+.nav-right { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+
+#cart-btn {
+  position:relative; width:40px; height:40px;
+  border:1px solid var(--line2); border-radius:2px; background:none;
+  display:flex; align-items:center; justify-content:center;
+  transition:border-color .2s;
+}
+#cart-btn:hover { border-color:var(--amber); }
+#cart-btn svg { width:18px; height:18px; stroke:var(--bone); fill:none; stroke-width:1.5; }
+.cart-dot {
+  position:absolute; top:-5px; right:-5px;
+  width:15px; height:15px; border-radius:50%;
+  background:var(--rust); color:#fff; font-size:.5rem;
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; transform:scale(0); transition:all .2s var(--ease);
+}
+.cart-dot.show { opacity:1; transform:scale(1); }
+
+/* Mobile hamburger */
+.nav-burger { display:none; flex-direction:column; gap:5px; background:none; border:none; padding:4px; }
+.nav-burger span { display:block; width:22px; height:1px; background:var(--bone); transition:all .25s; }
+.nav-burger.open span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+.nav-burger.open span:nth-child(2) { opacity:0; }
+.nav-burger.open span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+
+/* ─────────────────────────────────────────────────────────────
+   HERO
+───────────────────────────────────────────────────────────── */
+.hero {
+  position:relative; overflow:hidden;
+  min-height:calc(100svh - 96px);
+  display:grid; align-items:end;
+  padding:60px 32px 72px;
+}
+.hero-bg {
+  position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse 90% 70% at 65% 20%, rgba(201,75,10,.14) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 40% at 10% 80%, rgba(181,239,6,.06) 0%, transparent 55%),
+    linear-gradient(160deg, #0f0f0f 0%, var(--ink) 100%);
+}
+/* Perspective grid */
+.hero-grid {
+  position:absolute; inset:0;
+  background:
+    linear-gradient(rgba(40,40,40,.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(40,40,40,.25) 1px, transparent 1px);
+  background-size:72px 72px;
+  transform:perspective(600px) rotateX(12deg) scale(1.1);
+  transform-origin:center bottom;
+  mask-image:linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.5) 40%, transparent 95%);
+}
+/* Animated orbs */
+.hero-orb {
+  position:absolute; border-radius:50%; pointer-events:none;
+  filter:blur(80px); opacity:.18;
+}
+.hero-orb-1 {
+  width:520px; height:520px; right:-80px; top:-120px;
+  background:var(--rust);
+  animation:orbDrift 14s ease-in-out infinite alternate;
+}
+.hero-orb-2 {
+  width:380px; height:380px; left:-60px; bottom:-60px;
+  background:var(--lime);
+  animation:orbDrift 18s ease-in-out infinite alternate-reverse;
+}
+@keyframes orbDrift {
+  from { transform:translate(0,0) scale(1); }
+  to   { transform:translate(40px,-30px) scale(1.08); }
+}
+.hero-inner {
+  position:relative; z-index:2;
+  max-width:1360px; margin:0 auto; width:100%;
+  display:grid; grid-template-columns:1fr auto;
+  align-items:end; gap:40px;
+}
+.hero-text {}
+.hero-kicker {
+  font-size:.65rem; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--lime); margin-bottom:22px;
+  display:flex; align-items:center; gap:10px;
+}
+.hero-kicker::before { content:''; width:24px; height:1px; background:var(--lime); }
+h1.hero-title {
+  font-family:var(--fhd);
+  font-size:clamp(4.5rem,12vw,11.5rem);
+  line-height:.88; letter-spacing:.02em;
+  color:var(--bone);
+  margin-bottom:28px;
+}
+h1.hero-title .outline {
+  -webkit-text-stroke:1.5px var(--rust);
+  color:transparent;
+}
+.hero-sub {
+  font-family:var(--fserif); font-style:italic;
+  font-size:clamp(1rem,1.5vw,1.2rem); font-weight:400;
+  color:var(--stone); max-width:480px; line-height:1.65;
+  margin-bottom:40px;
+}
+.hero-cta { display:flex; gap:12px; flex-wrap:wrap; }
+
+/* Floating stats card */
+.hero-stats-card {
+  background:rgba(20,20,20,.9);
+  border:1px solid var(--line2); border-radius:4px;
+  padding:28px 24px; display:flex; flex-direction:column; gap:20px;
+  backdrop-filter:blur(12px);
+  box-shadow:0 32px 64px rgba(0,0,0,.7);
+  min-width:200px;
+}
+.h-stat-num {
+  font-family:var(--fhd); font-size:2.6rem; color:var(--amber); line-height:1;
+}
+.h-stat-lbl { font-size:.6rem; letter-spacing:.14em; text-transform:uppercase; color:var(--stone); margin-top:3px; }
+.h-stat + .h-stat { padding-top:20px; border-top:1px solid var(--line); }
+
+/* Floating ticket */
+.hero-ticket-wrap {
+  position:absolute; right:220px; top:50%; transform:translateY(-55%);
+  width:260px; z-index:3;
+  animation:float 5s ease-in-out infinite;
+}
+@keyframes float {
+  0%,100% { transform:translateY(-55%) rotate(-1.5deg); }
+  50%      { transform:translateY(calc(-55% - 18px)) rotate(1deg); }
+}
+.ticket {
+  background:var(--well); border:1px solid var(--line2); border-radius:10px;
+  overflow:hidden;
+  box-shadow:0 40px 80px rgba(0,0,0,.85), var(--glow-r);
+}
+.ticket-top {
+  height:148px; position:relative; overflow:hidden;
+  background:linear-gradient(150deg, #1c0800, #3a1200);
+  display:flex; align-items:flex-end; padding:14px;
+}
+.ticket-top::before {
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(
+    -45deg, transparent 0, transparent 6px,
+    rgba(255,255,255,.015) 6px, rgba(255,255,255,.015) 7px
+  );
+}
+.ticket-artist {
+  font-family:var(--fhd); font-size:2.2rem; color:rgba(201,75,10,.55);
+  position:absolute; top:12px; left:14px; line-height:1; letter-spacing:.04em;
+  user-select:none;
+}
+.ticket-live {
+  position:relative; z-index:1;
+  font-size:.58rem; letter-spacing:.14em; text-transform:uppercase;
+  background:var(--danger); color:#fff; padding:3px 8px; border-radius:1px;
+  display:flex; align-items:center; gap:5px;
+}
+.blink-dot { width:5px; height:5px; border-radius:50%; background:#fff; animation:bl .9s infinite; }
+@keyframes bl { 0%,100%{opacity:1} 50%{opacity:0} }
+.ticket-body { padding:14px 16px; }
+.ticket-name { font-family:var(--fhd); font-size:1.2rem; color:var(--bone); margin-bottom:3px; }
+.ticket-info { font-size:.62rem; color:var(--stone); letter-spacing:.07em; }
+.ticket-sep {
+  margin:0 -16px; border:none;
+  border-top:1px dashed var(--line2);
+  position:relative;
+}
+.ticket-sep::before,.ticket-sep::after {
+  content:''; position:absolute; top:-6px;
+  width:12px; height:12px; border-radius:50%;
+  background:var(--ink);
+}
+.ticket-sep::before { left:-6px; }
+.ticket-sep::after  { right:-6px; }
+.ticket-foot {
+  padding:12px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.ticket-price { font-family:var(--fhd); font-size:1.5rem; color:var(--lime); }
+.barcode {
+  display:flex; gap:1px; align-items:flex-end;
+}
+.barcode span {
+  display:block; width:2px;
+  background:rgba(236,229,213,.4);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SEARCH STRIP
+───────────────────────────────────────────────────────────── */
+.search-strip {
+  background:var(--deep); border-bottom:1px solid var(--line);
+  padding:24px 32px;
+}
+.search-form {
+  max-width:1360px; margin:0 auto;
+  display:flex; height:50px;
+}
+.search-form input[type=text] {
+  flex:1; background:var(--surface); border:1px solid var(--line2);
+  border-right:none; border-radius:2px 0 0 2px;
+  padding:0 18px; color:var(--bone);
+  font-family:var(--fmono); font-size:.8rem; letter-spacing:.04em;
+  outline:none; transition:border-color .2s;
+}
+.search-form input[type=text]:focus { border-color:var(--rust); }
+.search-form input[type=text]::placeholder { color:var(--stone); }
+.search-form select {
+  background:var(--surface); border:1px solid var(--line2);
+  border-right:none; padding:0 16px;
+  color:var(--stone); font-size:.72rem; letter-spacing:.06em;
+  outline:none; appearance:none; min-width:140px;
+}
+.search-form select:focus { border-color:var(--rust); color:var(--bone); }
+.search-form button[type=submit] {
+  background:var(--rust); color:#fff; border:none;
+  padding:0 32px; font-family:var(--fmono); font-size:.72rem;
+  letter-spacing:.12em; text-transform:uppercase;
+  border-radius:0 2px 2px 0; transition:background .2s;
+}
+.search-form button[type=submit]:hover { background:var(--amber); }
+.search-pills {
+  max-width:1360px; margin:14px auto 0;
+  display:flex; gap:8px; flex-wrap:wrap;
+}
+.pill {
+  font-family:var(--fmono); font-size:.62rem; letter-spacing:.1em;
+  text-transform:uppercase; padding:5px 14px;
+  border:1px solid var(--line2); border-radius:100px;
+  color:var(--stone); background:none;
+  transition:all .18s var(--ease);
+}
+.pill:hover { border-color:var(--stone); color:var(--bone); }
+.pill.on { border-color:var(--lime); color:var(--lime); }
+
+/* ─────────────────────────────────────────────────────────────
+   EVENTS GRID
+───────────────────────────────────────────────────────────── */
+.events-sec { padding:80px 32px; }
+.events-layout {
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  grid-template-rows:auto auto;
+  gap:16px;
+}
+/* featured card spans 2 columns and 2 rows */
+.ev-card { position:relative; border-radius:3px; overflow:hidden; border:1px solid var(--line); background:var(--well); }
+.ev-card-feat { grid-column:1/3; grid-row:1/3; }
+
+.ev-img {
+  position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+}
+.ev-card-feat .ev-img { height:440px; }
+.ev-card:not(.ev-card-feat) .ev-img { height:200px; }
+.ev-img-bg {
+  position:absolute; inset:0; transition:transform .65s var(--ease);
+}
+.ev-card:hover .ev-img-bg { transform:scale(1.06); }
+.ev-img-shade {
+  position:absolute; inset:0;
+  background:linear-gradient(to top, rgba(8,8,8,.92) 0%, rgba(8,8,8,.1) 55%);
+}
+.ev-corner { position:absolute; top:14px; z-index:2; }
+.ev-corner-l { left:14px; display:flex; gap:6px; }
+.ev-corner-r { right:14px; }
+.live-pill {
+  font-size:.58rem; letter-spacing:.12em; text-transform:uppercase;
+  background:var(--danger); color:#fff; padding:3px 9px; border-radius:1px;
+  display:flex; align-items:center; gap:5px;
+}
+.ev-body { padding:18px 20px; }
+.ev-meta { font-size:.65rem; color:var(--stone); letter-spacing:.07em; margin-bottom:6px; display:flex; gap:12px; }
+.ev-name { font-family:var(--fhd); color:var(--bone); transition:color .2s; cursor:default; }
+.ev-card-feat .ev-name { font-size:2.4rem; line-height:1.0; }
+.ev-card:not(.ev-card-feat) .ev-name { font-size:1.2rem; }
+.ev-card:hover .ev-name { color:var(--amber); }
+.ev-foot {
+  padding:12px 20px; border-top:1px solid var(--line);
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+}
+.ev-price-grp { display:flex; align-items:baseline; gap:5px; }
+.ev-from { font-size:.6rem; text-transform:uppercase; letter-spacing:.1em; color:var(--stone); }
+.ev-price { font-family:var(--fhd); font-size:1.45rem; color:var(--lime); }
+.ev-sold { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+.ev-pct { font-size:.62rem; color:var(--stone); }
+.ev-pct.hot { color:var(--amber); }
+.ev-pct.critical { color:var(--danger); }
+.ev-bar { width:80px; height:3px; background:var(--line2); border-radius:2px; overflow:hidden; }
+.ev-fill { height:100%; background:var(--rust); border-radius:2px; transition:width .8s var(--ease); }
+.ev-fill.hot { background:var(--amber); }
+
+/* remaining 2 small cards in col 3 */
+.ev-side { grid-column:3; }
+.ev-side:first-of-type { grid-row:1; }
+.ev-side:last-of-type  { grid-row:2; }
+
+/* row of 4 below */
+.events-row {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:16px;
+  margin-top:16px;
+}
+.ev-card-sm .ev-img { height:156px; }
+.ev-card-sm .ev-name { font-size:1.05rem; }
+
+/* ─────────────────────────────────────────────────────────────
+   CATEGORY RAIL
+───────────────────────────────────────────────────────────── */
+.cats-sec { padding:0 32px 80px; }
+.cats-rail {
+  display:grid; grid-template-columns:repeat(6,1fr); gap:12px;
+}
+.cat {
+  border:1px solid var(--line); border-radius:3px;
+  padding:22px 16px; text-align:center;
+  background:var(--well); transition:all .22s var(--ease);
+  display:flex; flex-direction:column; align-items:center; gap:10px;
+}
+.cat:hover {
+  border-color:var(--amber); background:rgba(232,136,11,.05);
+  transform:translateY(-3px);
+}
+.cat-ico { font-size:1.7rem; line-height:1; }
+.cat-name { font-size:.62rem; letter-spacing:.14em; text-transform:uppercase; color:var(--stone); }
+.cat-n { font-family:var(--fhd); font-size:1.3rem; color:var(--amber); line-height:1; }
+
+/* ─────────────────────────────────────────────────────────────
+   PULSE MAP
+───────────────────────────────────────────────────────────── */
+.pulse-sec {
+  padding:80px 32px;
+  background:var(--deep); border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+}
+.pulse-layout { display:grid; grid-template-columns:1fr 520px; gap:72px; align-items:center; }
+.pulse-kpis { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:28px 0 36px; }
+.kpi {
+  background:var(--well); border:1px solid var(--line); border-radius:3px;
+  padding:14px;
+}
+.kpi-num { font-family:var(--fhd); font-size:1.9rem; color:var(--lime); line-height:1; }
+.kpi-lbl { font-size:.6rem; letter-spacing:.12em; text-transform:uppercase; color:var(--stone); margin-top:4px; }
+.map-wrap {
+  border-radius:4px; overflow:hidden;
+  border:1px solid var(--line2);
+  box-shadow:0 24px 60px rgba(0,0,0,.6);
+}
+#pulseCanvas { display:block; width:100%; }
+
+/* ─────────────────────────────────────────────────────────────
+   MARKETPLACE
+───────────────────────────────────────────────────────────── */
+.market-sec { padding:80px 32px; }
+.sell-cta {
+  background:linear-gradient(120deg, var(--deep), #1a0800);
+  border:1px solid var(--rust); border-radius:3px;
+  padding:34px 40px; margin-bottom:32px;
+  display:flex; align-items:center; justify-content:space-between; gap:32px;
+}
+.sell-cta-text .eyebrow { font-size:.62rem; letter-spacing:.18em; text-transform:uppercase; color:var(--rust); margin-bottom:8px; }
+.sell-cta-text h3 { font-family:var(--fhd); font-size:2rem; margin-bottom:6px; }
+.sell-cta-text p { font-size:.78rem; color:var(--stone); max-width:440px; line-height:1.6; }
+
+.market-layout { display:grid; grid-template-columns:340px 1fr; gap:40px; }
+.filters-col { position:sticky; top:76px; align-self:start; }
+.filter-box {
+  background:var(--well); border:1px solid var(--line); border-radius:3px;
+  padding:22px; margin-bottom:14px;
+}
+.filter-hed {
+  font-size:.62rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--stone); padding-bottom:12px; margin-bottom:14px;
+  border-bottom:1px solid var(--line);
+}
+.f-opt {
+  display:flex; align-items:center; gap:10px;
+  font-size:.78rem; padding:7px 0; user-select:none;
+  transition:color .15s;
+}
+.f-opt:hover { color:var(--amber); }
+.f-box {
+  width:14px; height:14px; border:1px solid var(--line2);
+  border-radius:2px; background:var(--ink);
+  flex-shrink:0; transition:all .15s;
+  display:flex; align-items:center; justify-content:center;
+}
+.f-opt.on .f-box { background:var(--rust); border-color:var(--rust); }
+.f-opt.on .f-box::after { content:'✓'; font-size:.55rem; color:#fff; }
+
+.listings {}
+.l-card {
+  background:var(--well); border:1px solid var(--line); border-radius:3px;
+  display:grid; grid-template-columns:96px 1fr auto;
+  overflow:hidden; margin-bottom:10px;
+  transition:border-color .2s, transform .22s var(--ease);
+}
+.l-card:hover { border-color:var(--rust); transform:translateX(5px); }
+.l-thumb {
+  background:linear-gradient(150deg, #180800, #280e00);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.6rem;
+}
+.l-details { padding:15px 18px; }
+.l-name { font-family:var(--fhd); font-size:1.05rem; margin-bottom:3px; }
+.l-meta { font-size:.68rem; color:var(--stone); letter-spacing:.05em; }
+.l-tags { display:flex; gap:5px; margin-top:8px; }
+.l-right {
+  padding:15px 18px;
+  display:flex; flex-direction:column; align-items:flex-end; justify-content:space-between;
+}
+.l-price { font-family:var(--fhd); font-size:1.7rem; color:var(--lime); line-height:1; }
+.l-seller { font-size:.62rem; color:var(--stone); margin-top:3px; }
+
+/* ─────────────────────────────────────────────────────────────
+   LIVE BIDS
+───────────────────────────────────────────────────────────── */
+.bids-sec {
+  padding:80px 32px;
+  background:radial-gradient(ellipse 80% 60% at 50% 100%, rgba(201,75,10,.07), transparent),
+             var(--ink);
+  border-top:1px solid var(--line);
+}
+.bids-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+.bid-card {
+  background:var(--well); border:1px solid var(--line); border-radius:3px;
+  overflow:hidden; transition:border-color .2s, box-shadow .3s;
+}
+.bid-card:hover { border-color:var(--amber); box-shadow:0 0 36px rgba(232,136,11,.12); }
+.bid-head { padding:18px; border-bottom:1px solid var(--line); }
+.bid-ev { font-family:var(--fhd); font-size:1.25rem; margin-bottom:3px; }
+.bid-sub { font-size:.65rem; color:var(--stone); letter-spacing:.05em; display:flex; align-items:center; justify-content:space-between; }
+.bid-timer { color:var(--amber); font-variant-numeric:tabular-nums; }
+.bid-body { padding:18px; }
+.bid-row { display:flex; gap:24px; margin-bottom:14px; }
+.bid-blk {}
+.bid-blk-lbl { font-size:.6rem; letter-spacing:.1em; text-transform:uppercase; color:var(--stone); }
+.bid-blk-val { font-family:var(--fhd); font-size:1.55rem; margin-top:2px; }
+.bid-blk-val.live { color:var(--amber); }
+.bid-blk-val.face { color:var(--fog); text-decoration:line-through; font-size:1.2rem; }
+.bid-progress { height:3px; background:var(--line2); border-radius:2px; margin-bottom:14px; overflow:hidden; }
+.bid-prog-fill { height:100%; background:linear-gradient(to right, var(--rust), var(--amber)); }
+.bid-entry { display:flex; gap:8px; }
+.bid-input {
+  flex:1; background:var(--ink); border:1px solid var(--line2);
+  border-radius:2px; padding:10px 12px; color:var(--bone);
+  font-family:var(--fhd); font-size:1.05rem;
+  outline:none; transition:border-color .2s;
+}
+.bid-input:focus { border-color:var(--amber); }
+.bid-submit {
+  background:var(--rust); color:#fff; border:none; border-radius:2px;
+  padding:10px 18px; font-family:var(--fmono); font-size:.7rem;
+  letter-spacing:.08em; text-transform:uppercase; transition:background .2s;
+}
+.bid-submit:hover { background:var(--amber); }
+.bid-foot {
+  padding:10px 18px; border-top:1px solid var(--line);
+  display:flex; justify-content:space-between;
+  font-size:.64rem; color:var(--stone);
+}
+.bid-hot { color:var(--lime); }
+
+/* ─────────────────────────────────────────────────────────────
+   AR PREVIEW STRIP
+───────────────────────────────────────────────────────────── */
+.ar-sec {
+  padding:80px 32px;
+  background:var(--deep); border-top:1px solid var(--line);
+}
+.ar-layout {
+  background:var(--well); border:1px solid var(--line); border-radius:4px;
+  display:grid; grid-template-columns:1fr 1fr; overflow:hidden;
+}
+.ar-text { padding:64px 56px; display:flex; flex-direction:column; justify-content:center; }
+.ar-label { font-size:.62rem; letter-spacing:.2em; text-transform:uppercase; color:var(--lime); margin-bottom:18px; }
+.ar-title { font-family:var(--fhd); font-size:clamp(2.4rem,4vw,4rem); line-height:.96; margin-bottom:18px; }
+.ar-sub {
+  font-family:var(--fserif); font-style:italic; font-size:.98rem;
+  color:var(--stone); line-height:1.7; margin-bottom:28px;
+}
+.ar-feats { list-style:none; margin-bottom:32px; }
+.ar-feats li {
+  font-size:.76rem; color:var(--stone); padding:8px 0;
+  border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:12px;
+}
+.ar-feats li::before { content:'—'; color:var(--lime); font-size:.7rem; }
+.ar-visual {
+  background:radial-gradient(ellipse at center, #1a0800, var(--ink));
+  position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  min-height:420px;
+}
+/* Rings behind phone */
+.ar-ring {
+  position:absolute; border-radius:50%;
+  border:1px solid rgba(201,75,10,.15);
+  animation:arRing 4s ease-out infinite;
+}
+.ar-ring:nth-child(1) { width:180px; height:180px; animation-delay:0s; }
+.ar-ring:nth-child(2) { width:300px; height:300px; animation-delay:1.2s; }
+.ar-ring:nth-child(3) { width:440px; height:440px; animation-delay:2.4s; }
+@keyframes arRing {
+  0%   { opacity:.6; transform:scale(.8); }
+  100% { opacity:0;  transform:scale(1.4); }
+}
+/* phone mock */
+.phone-mock {
+  position:relative; z-index:2; width:180px;
+  animation:float 6s ease-in-out infinite;
+  filter:drop-shadow(0 30px 60px rgba(0,0,0,.9)) drop-shadow(0 0 40px rgba(201,75,10,.3));
+}
+.phone-shell {
+  background:#181818; border:2px solid #2e2e2e; border-radius:28px; padding:10px;
+}
+.phone-screen {
+  background:var(--ink); border-radius:20px;
+  aspect-ratio:9/18; padding:16px;
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:14px; overflow:hidden;
+}
+.phone-ticket {
+  width:100%; background:var(--surface); border-radius:6px;
+  padding:10px; border:1px solid var(--line2);
+}
+.phone-ticket-ev { font-family:var(--fhd); font-size:.8rem; color:var(--amber); }
+.phone-ticket-seat { font-size:.55rem; color:var(--stone); margin-top:1px; }
+.scan-box {
+  width:88px; height:88px;
+  border:1.5px solid var(--lime); border-radius:4px;
+  position:relative;
+}
+.scan-box::before,.scan-box::after {
+  content:''; position:absolute; width:12px; height:12px;
+  border-color:var(--lime); border-style:solid;
+}
+.scan-box::before { top:-1.5px; left:-1.5px; border-width:2px 0 0 2px; }
+.scan-box::after  { bottom:-1.5px; right:-1.5px; border-width:0 2px 2px 0; }
+.scan-line {
+  position:absolute; left:4px; right:4px; height:1.5px;
+  background:linear-gradient(to right, transparent, var(--lime), transparent);
+  animation:scanIt 2.2s linear infinite;
+}
+@keyframes scanIt { from{top:6px} to{top:calc(100% - 6px)} }
+.phone-status { font-size:.5rem; color:var(--lime); letter-spacing:.12em; text-transform:uppercase; }
+
+/* ─────────────────────────────────────────────────────────────
+   SCHEDULE TABLE
+───────────────────────────────────────────────────────────── */
+.sched-sec { padding:80px 32px; }
+.sched-table { width:100%; border-collapse:collapse; }
+.sched-table th {
+  font-size:.6rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--stone); text-align:left; padding:11px 16px;
+  border-bottom:1px solid var(--line2);
+}
+.sched-table tbody tr {
+  border-bottom:1px solid var(--line);
+  transition:background .15s;
+  cursor:pointer;
+}
+.sched-table tbody tr:hover { background:rgba(255,255,255,.02); }
+.sched-table td { padding:15px 16px; vertical-align:middle; font-size:.8rem; }
+.s-date { font-family:var(--fhd); font-size:1.05rem; color:var(--amber); white-space:nowrap; }
+.s-name { font-family:var(--fhd); font-size:1.1rem; }
+.s-venue { font-size:.68rem; color:var(--stone); margin-top:2px; }
+.s-avail { font-size:.68rem; }
+.s-avail.ok { color:var(--ok); }
+.s-avail.low { color:var(--amber); }
+.s-avail.out { color:var(--danger); }
+
+/* ─────────────────────────────────────────────────────────────
+   GROUP BUY
+───────────────────────────────────────────────────────────── */
+.group-sec {
+  padding:80px 32px;
+  background:var(--deep); border-top:1px solid var(--line);
+}
+.group-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+.g-card {
+  background:var(--well); border:1px solid var(--line); border-radius:3px;
+  overflow:hidden; transition:border-color .2s;
+}
+.g-card:hover { border-color:var(--lime); }
+.g-head {
+  padding:18px; border-bottom:1px solid var(--line);
+  display:flex; justify-content:space-between; align-items:flex-start;
+}
+.g-ev { font-family:var(--fhd); font-size:1.15rem; }
+.g-sub { font-size:.65rem; color:var(--stone); margin-top:3px; }
+.g-body { padding:18px; }
+.g-progress-lbl { display:flex; justify-content:space-between; font-size:.68rem; color:var(--stone); margin-bottom:6px; }
+.g-progress-lbl span:last-child { color:var(--lime); }
+.g-bar-track { height:5px; background:var(--line2); border-radius:3px; margin-bottom:16px; overflow:hidden; }
+.g-bar-fill { height:100%; border-radius:3px; background:linear-gradient(to right, var(--lime), var(--amber)); }
+.g-avatars { display:flex; margin-bottom:14px; }
+.g-av {
+  width:26px; height:26px; border-radius:50%;
+  border:2px solid var(--well); margin-left:-7px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.55rem; font-weight:500;
+}
+.g-av:first-child { margin-left:0; }
+.g-discount {
+  background:rgba(181,239,6,.06); border:1px solid rgba(181,239,6,.18);
+  border-radius:3px; padding:12px; text-align:center; margin-bottom:14px;
+}
+.g-disc-pct { font-family:var(--fhd); font-size:2rem; color:var(--lime); line-height:1; }
+.g-disc-lbl { font-size:.6rem; color:var(--stone); letter-spacing:.1em; text-transform:uppercase; margin-top:2px; }
+.g-actions { display:flex; gap:8px; padding:0 18px 18px; }
+
+/* ─────────────────────────────────────────────────────────────
+   TESTIMONIALS
+───────────────────────────────────────────────────────────── */
+.trust-sec { padding:80px 32px; }
+.trust-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+.t-card {
+  background:var(--well); border:1px solid var(--line); border-radius:3px;
+  padding:26px 22px;
+}
+.t-stars { color:var(--amber); font-size:.85rem; letter-spacing:2px; margin-bottom:12px; }
+.t-quote {
+  font-family:var(--fserif); font-style:italic; font-size:.9rem;
+  color:var(--stone); line-height:1.7; margin-bottom:16px;
+}
+.t-author { font-size:.65rem; letter-spacing:.08em; text-transform:uppercase; }
+.t-handle { color:var(--stone); margin-top:2px; }
+
+/* ─────────────────────────────────────────────────────────────
+   FOOTER
+───────────────────────────────────────────────────────────── */
+footer {
+  border-top:1px solid var(--line); background:var(--deep);
+  padding:60px 32px 28px;
+}
+.foot-grid {
+  max-width:1360px; margin:0 auto;
+  display:grid; grid-template-columns:1.6fr 1fr 1fr 1fr; gap:48px;
+  padding-bottom:48px; margin-bottom:28px;
+  border-bottom:1px solid var(--line);
+}
+.foot-brand .logo { margin-bottom:14px; }
+.foot-tagline {
+  font-family:var(--fserif); font-style:italic; font-size:.9rem;
+  color:var(--stone); line-height:1.65; margin-bottom:22px;
+}
+.foot-socials { display:flex; gap:8px; }
+.soc {
+  width:34px; height:34px; border:1px solid var(--line2);
+  border-radius:2px; background:none; color:var(--stone);
+  display:flex; align-items:center; justify-content:center;
+  font-size:.75rem; transition:all .18s;
+}
+.soc:hover { border-color:var(--rust); color:var(--rust); }
+.foot-col-hed {
+  font-size:.6rem; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--bone); padding-bottom:12px; margin-bottom:16px;
+  border-bottom:1px solid var(--line);
+}
+.foot-links { list-style:none; }
+.foot-links li { margin-bottom:9px; }
+.foot-links a { font-size:.77rem; color:var(--stone); transition:color .15s; }
+.foot-links a:hover { color:var(--amber); }
+.foot-bottom {
+  max-width:1360px; margin:0 auto;
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;
+}
+.foot-copy { font-size:.68rem; color:var(--stone); }
+.foot-badges { display:flex; gap:10px; flex-wrap:wrap; }
+.badge {
+  font-size:.58rem; letter-spacing:.08em; text-transform:uppercase;
+  padding:4px 10px; border:1px solid var(--line2); border-radius:2px; color:var(--stone);
+}
+.badge.g { border-color:var(--ok); color:var(--ok); }
+
+/* ─────────────────────────────────────────────────────────────
+   MODAL
+───────────────────────────────────────────────────────────── */
+.backdrop {
+  position:fixed; inset:0; z-index:1200;
+  background:rgba(0,0,0,.88); backdrop-filter:blur(10px);
+  display:flex; align-items:center; justify-content:center;
+  padding:16px;
+  opacity:0; pointer-events:none; transition:opacity .25s;
+}
+.backdrop.open { opacity:1; pointer-events:all; }
+.modal {
+  background:var(--well); border:1px solid var(--line2);
+  border-radius:6px; width:100%; max-width:548px;
+  max-height:90svh; overflow-y:auto;
+  transform:translateY(28px) scale(.97);
+  transition:transform .3s var(--ease);
+}
+.backdrop.open .modal { transform:translateY(0) scale(1); }
+.modal-hd {
+  padding:22px 26px; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  position:sticky; top:0; background:var(--well); z-index:2;
+}
+.modal-hed-title { font-family:var(--fhd); font-size:1.55rem; }
+.modal-x {
+  width:30px; height:30px; border:1px solid var(--line2); border-radius:2px;
+  background:none; color:var(--stone); font-size:1rem;
+  display:flex; align-items:center; justify-content:center; transition:all .15s;
+  flex-shrink:0;
+}
+.modal-x:hover { border-color:var(--danger); color:var(--danger); }
+.modal-bd { padding:24px 26px; }
+
+.ev-summary {
+  background:var(--ink); border:1px solid var(--line); border-radius:3px;
+  padding:14px; margin-bottom:22px;
+  display:flex; align-items:center; gap:14px;
+}
+.ev-sum-ico {
+  width:52px; height:52px; border-radius:3px; flex-shrink:0;
+  background:linear-gradient(135deg, #190700, #3a1200);
+  display:flex; align-items:center; justify-content:center; font-size:1.4rem;
+}
+.ev-sum-name { font-family:var(--fhd); font-size:1.15rem; }
+.ev-sum-meta { font-size:.68rem; color:var(--stone); margin-top:2px; }
+.ev-sum-price { margin-left:auto; font-family:var(--fhd); font-size:1.7rem; color:var(--lime); flex-shrink:0; }
+
+/* qty */
+.qty-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+.qty-lbl { font-size:.68rem; letter-spacing:.1em; text-transform:uppercase; color:var(--stone); }
+.qty-ctl { display:flex; align-items:center; gap:12px; }
+.qty-dec,.qty-inc {
+  width:30px; height:30px; border:1px solid var(--line2); border-radius:2px;
+  background:none; color:var(--bone); font-size:1.1rem;
+  display:flex; align-items:center; justify-content:center; transition:all .15s;
+}
+.qty-dec:hover,.qty-inc:hover { border-color:var(--rust); color:var(--rust); }
+.qty-val { font-family:var(--fhd); font-size:1.35rem; min-width:22px; text-align:center; }
+
+/* pay tabs */
+.pay-tabs { display:flex; border:1px solid var(--line2); border-radius:3px; overflow:hidden; margin-bottom:22px; }
+.pay-tab {
+  flex:1; padding:11px 8px; text-align:center;
+  font-family:var(--fmono); font-size:.68rem; letter-spacing:.08em; text-transform:uppercase;
+  background:none; border:none; color:var(--stone); border-right:1px solid var(--line2);
+  transition:all .18s;
+}
+.pay-tab:last-child { border-right:none; }
+.pay-tab.on { background:var(--ink); color:var(--bone); }
+.pay-tab:hover:not(.on) { color:var(--amber); }
+
+/* fields */
+.fld { margin-bottom:14px; }
+.fld label { display:block; font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--stone); margin-bottom:5px; }
+.fld input,.fld select {
+  width:100%; background:var(--ink); border:1px solid var(--line2); border-radius:2px;
+  padding:10px 13px; color:var(--bone); font-family:var(--fmono); font-size:.82rem;
+  outline:none; transition:border-color .18s; appearance:none;
+}
+.fld input:focus,.fld select:focus { border-color:var(--rust); }
+.fld input::placeholder { color:var(--stone); }
+.frow { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+.mpesa-box {
+  background:rgba(181,239,6,.04); border:1px solid rgba(181,239,6,.18);
+  border-radius:3px; padding:14px; margin-bottom:14px;
+}
+.mpesa-logo-txt { font-family:var(--fhd); font-size:1.35rem; color:var(--lime); margin-bottom:6px; }
+.mpesa-note { font-size:.74rem; color:var(--stone); line-height:1.5; }
+
+.crypto-opts { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+.c-opt {
+  padding:11px 6px; border:1px solid var(--line2); border-radius:3px;
+  background:none; color:var(--stone); font-size:.68rem; letter-spacing:.05em;
+  text-align:center; font-family:var(--fmono); transition:all .18s;
+}
+.c-opt-ico { font-size:1.3rem; display:block; margin-bottom:5px; }
+.c-opt:hover,.c-opt.on { border-color:var(--amber); color:var(--amber); }
+
+.order-box {
+  background:var(--ink); border:1px solid var(--line); border-radius:3px;
+  padding:14px; margin-bottom:18px;
+}
+.o-row { display:flex; justify-content:space-between; font-size:.76rem; padding:4px 0; color:var(--stone); }
+.o-row.total {
+  border-top:1px solid var(--line2); margin-top:8px; padding-top:11px;
+  color:var(--bone); font-size:.88rem;
+}
+.o-row.total .v { font-family:var(--fhd); font-size:1.3rem; color:var(--lime); }
+
+.pay-cta {
+  width:100%; padding:14px; background:var(--rust); color:#fff; border:none;
+  border-radius:3px; font-family:var(--fmono); font-size:.8rem;
+  letter-spacing:.1em; text-transform:uppercase; transition:all .22s var(--ease);
+}
+.pay-cta:hover { background:var(--amber); box-shadow:0 8px 28px rgba(201,75,10,.4); }
+.sec-note {
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  font-size:.62rem; letter-spacing:.07em; color:var(--stone); margin-top:10px;
+}
+.sec-note-ico { color:var(--lime); }
+
+/* processing state */
+.processing {
+  text-align:center; padding:32px 0;
+}
+.proc-spinner {
+  width:52px; height:52px; border-radius:50%;
+  border:2px solid var(--line2); border-top-color:var(--rust);
+  margin:0 auto 20px; animation:spin .7s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.proc-title { font-family:var(--fhd); font-size:1.5rem; margin-bottom:8px; }
+.proc-sub { font-size:.76rem; color:var(--stone); }
+
+/* success state */
+.success-view {
+  text-align:center; padding:40px 24px;
+}
+.success-ring {
+  width:72px; height:72px; border-radius:50%; border:2px solid var(--ok);
+  display:flex; align-items:center; justify-content:center;
+  margin:0 auto 22px; font-size:1.8rem;
+  animation:popIn .45s var(--ease);
+}
+@keyframes popIn { from{transform:scale(0);opacity:0} to{transform:scale(1);opacity:1} }
+.success-view h3 { font-family:var(--fhd); font-size:2.2rem; margin-bottom:10px; }
+.success-view p { font-size:.8rem; color:var(--stone); line-height:1.6; max-width:340px; margin:0 auto 24px; }
+.ticket-id { font-size:.65rem; color:var(--stone); margin-top:14px; letter-spacing:.08em; }
+
+/* SELL MODAL */
+.sell-steps { display:flex; border-bottom:1px solid var(--line); margin-bottom:24px; }
+.sell-step {
+  flex:1; padding:11px; text-align:center; font-size:.65rem;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--stone);
+  border-bottom:2px solid transparent; transition:all .2s;
+}
+.sell-step.on  { border-color:var(--rust); color:var(--bone); }
+.sell-step.done { border-color:var(--ok); color:var(--ok); }
+
+/* ─────────────────────────────────────────────────────────────
+   TOAST
+───────────────────────────────────────────────────────────── */
+#toast-zone {
+  position:fixed; bottom:24px; right:24px; z-index:9500;
+  display:flex; flex-direction:column-reverse; gap:8px;
+}
+.toast {
+  background:var(--surface); border:1px solid var(--line2); border-radius:3px;
+  padding:12px 16px; display:flex; align-items:center; gap:10px;
+  font-size:.78rem; min-width:270px; max-width:340px;
+  box-shadow:0 8px 28px rgba(0,0,0,.6);
+  animation:tIn .3s var(--ease);
+  transition:opacity .3s, transform .3s var(--ease);
+}
+@keyframes tIn { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:none} }
+.toast.dying { opacity:0; transform:translateX(12px); }
+.toast-ico { font-size:.95rem; }
+.toast.ok { border-color:var(--ok); }
+.toast.ok .toast-ico { color:var(--ok); }
+.toast.info { border-color:var(--amber); }
+.toast.info .toast-ico { color:var(--amber); }
+.toast.err  { border-color:var(--danger); }
+.toast.err  .toast-ico { color:var(--danger); }
+
+/* ─────────────────────────────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────────────────────────────── */
+@media(max-width:1080px) {
+  .events-layout { grid-template-columns:1fr 1fr; }
+  .ev-card-feat  { grid-column:1/3; grid-row:auto; }
+  .ev-side       { grid-column:auto; grid-row:auto; }
+  .events-row    { grid-template-columns:1fr 1fr; }
+  .pulse-layout  { grid-template-columns:1fr; }
+  .market-layout { grid-template-columns:1fr; }
+  .filters-col   { position:static; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .ar-layout     { grid-template-columns:1fr; }
+  .ar-visual     { min-height:280px; }
+  .bids-grid     { grid-template-columns:1fr 1fr; }
+  .group-grid    { grid-template-columns:1fr 1fr; }
+  .trust-grid    { grid-template-columns:1fr 1fr; }
+  .foot-grid     { grid-template-columns:1fr 1fr; gap:32px; }
+  .hero-ticket-wrap { display:none; }
+  .hero-inner    { grid-template-columns:1fr; }
+  .hero-stats-card { display:none; }
+  .cats-rail     { grid-template-columns:repeat(3,1fr); }
+}
+@media(max-width:680px) {
+  .wrap,.events-sec,.pulse-sec,.market-sec,.bids-sec,.ar-sec,.sched-sec,.group-sec,.trust-sec,.cats-sec,footer,
+  .search-strip,.sell-cta,.sec-head { padding-left:20px; padding-right:20px; }
+  h1.hero-title  { font-size:clamp(3.2rem,14vw,6rem); }
+  .hero          { padding:40px 20px 56px; }
+  .nav-links     { display:none; }
+  .nav-burger    { display:flex; }
+  .events-layout { grid-template-columns:1fr; }
+  .ev-card-feat  { grid-column:auto; }
+  .events-row    { grid-template-columns:1fr; }
+  .bids-grid,.group-grid,.trust-grid { grid-template-columns:1fr; }
+  .cats-rail     { grid-template-columns:repeat(2,1fr); }
+  .foot-grid     { grid-template-columns:1fr; }
+  .sell-cta      { flex-direction:column; }
+  .search-form   { flex-direction:column; height:auto; }
+  .search-form input[type=text],
+  .search-form select { border-right:1px solid var(--line2); border-radius:2px; padding:12px 14px; width:100%; }
+  .search-form button[type=submit] { padding:14px; border-radius:2px; width:100%; }
+  .sec-head      { flex-direction:column; align-items:flex-start; gap:10px; }
+  .ar-text       { padding:36px 28px; }
+  .sched-table th:nth-child(3),
+  .sched-table td:nth-child(3) { display:none; }
+}
+</style>
+</head>
+<body>
+
+<div id="noise-layer" aria-hidden="true"></div>
+<div id="cur-dot"  aria-hidden="true"></div>
+<div id="cur-ring" aria-hidden="true"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TOPBAR TICKER
+════════════════════════════════════════════════════════════ -->
+<div class="topbar" role="marquee" aria-label="Upcoming events">
+  <div class="ticker-track" id="tickerTrack"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NAVIGATION
+════════════════════════════════════════════════════════════ -->
+<nav class="nav" role="navigation">
+  <div class="nav-inner">
+    <a href="#" class="logo" aria-label="VLTX home">VLT<span>X</span></a>
+    <ul class="nav-links" role="list">
+      <li><a href="#events">Events</a></li>
+      <li><a href="#market">Marketplace</a></li>
+      <li><a href="#bids">Live Bids</a></li>
+      <li><a href="#schedule">Schedule</a></li>
+      <li><a href="#group">Group Buy</a></li>
+    </ul>
+    <div class="nav-right">
+      <button class="btn btn-o" id="navSellBtn">Sell Tickets</button>
+      <a href="#" class="btn btn-r">Sign In</a>
+      <button id="cart-btn" aria-label="View cart">
+        <svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0"/></svg>
+        <span class="cart-dot" id="cartDot">0</span>
+      </button>
+      <button class="nav-burger" id="navBurger" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════════════════════ -->
+<section class="hero" aria-label="Hero">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="hero-grid" aria-hidden="true"></div>
+  <div class="hero-orb hero-orb-1" aria-hidden="true"></div>
+  <div class="hero-orb hero-orb-2" aria-hidden="true"></div>
+
+  <!-- Floating ticket -->
+  <div class="hero-ticket-wrap" aria-hidden="true">
+    <div class="ticket">
+      <div class="ticket-top">
+        <span class="ticket-artist">BURNA BOY</span>
+        <span class="ticket-live"><span class="blink-dot"></span>Live Bidding</span>
+      </div>
+      <div class="ticket-body">
+        <div class="ticket-name">BURNA BOY</div>
+        <div class="ticket-info">SAT · 14 JUN 2026 · 20:00 · NAIROBI</div>
+      </div>
+      <hr class="ticket-sep">
+      <div class="ticket-foot">
+        <span class="ticket-price">KES 4,500</span>
+        <div class="barcode" id="barcodeEl"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-inner">
+    <div class="hero-text">
+      <p class="hero-kicker">Kenya's No.1 Live Event Platform</p>
+      <h1 class="hero-title">YOUR<br>NEXT <span class="outline">LIVE</span><br>MOMENT</h1>
+      <p class="hero-sub">Concerts, sports, theatre, gaming — discover events, buy and sell tickets with real-time pricing and zero hidden fees.</p>
+      <div class="hero-cta">
+        <button class="btn btn-l" id="heroExploreBtn">Explore Events</button>
+        <button class="btn btn-o" id="heroSellBtn">Sell My Tickets</button>
+      </div>
+    </div>
+    <div class="hero-stats-card">
+      <div class="h-stat">
+        <div class="h-stat-num js-count" data-target="348">0</div>
+        <div class="h-stat-lbl">Live Events</div>
+      </div>
+      <div class="h-stat">
+        <div class="h-stat-num js-count" data-target="120400">0</div>
+        <div class="h-stat-lbl">Tickets Sold</div>
+      </div>
+      <div class="h-stat">
+        <div class="h-stat-num js-count" data-target="14">0</div>
+        <div class="h-stat-lbl">Cities</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SEARCH
+════════════════════════════════════════════════════════════ -->
+<div class="search-strip">
+  <form class="search-form" id="searchForm" role="search">
+    <input type="text" placeholder="Search events, artists, venues…" aria-label="Search events">
+    <select aria-label="Category">
+      <option value="">All Categories</option>
+      <option>Concerts</option>
+      <option>Sports</option>
+      <option>Theatre</option>
+      <option>Gaming</option>
+      <option>Comedy</option>
+      <option>Festivals</option>
+    </select>
+    <select aria-label="City">
+      <option value="">All Cities</option>
+      <option>Nairobi</option>
+      <option>Mombasa</option>
+      <option>Kisumu</option>
+      <option>Nakuru</option>
+    </select>
+    <button type="submit">Search</button>
+  </form>
+  <div class="search-pills">
+    <button class="pill on" data-pill>All</button>
+    <button class="pill" data-pill>Concerts</button>
+    <button class="pill" data-pill>Sports</button>
+    <button class="pill" data-pill>Theatre</button>
+    <button class="pill" data-pill>Gaming</button>
+    <button class="pill" data-pill>Comedy</button>
+    <button class="pill" data-pill>Spoken Word</button>
+    <button class="pill" data-pill>Hot Deals</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FEATURED EVENTS
+════════════════════════════════════════════════════════════ -->
+<section class="events-sec wrap" id="events">
+  <div class="sec-head">
+    <div>
+      <p class="sec-label">Don't miss out</p>
+      <h2 class="sec-title">Featured Events</h2>
+    </div>
+    <a href="#schedule" class="view-all">Full schedule →</a>
+  </div>
+
+  <div class="events-layout">
+    <!-- Featured large -->
+    <article class="ev-card ev-card-feat" role="button" tabindex="0" data-event="Burna Boy — African Giant Tour" data-meta="SAT 14 JUN 2026 · 20:00 · Kasarani Stadium, Nairobi" data-ico="🎵" data-price="4500">
+      <div class="ev-img">
+        <div class="ev-img-bg" style="background:linear-gradient(150deg,#1c0600,#3e1200,#180800)"></div>
+        <div class="ev-img-shade"></div>
+        <div class="ev-corner ev-corner-l">
+          <span class="live-pill"><span class="blink-dot"></span>Live Bidding</span>
+          <span class="tag tag-r">Concert</span>
+        </div>
+        <div class="ev-corner ev-corner-r"><span class="tag tag-g">Nairobi</span></div>
+      </div>
+      <div class="ev-body">
+        <div class="ev-meta"><span>SAT · 14 JUN 2026</span><span>20:00</span><span>Kasarani Stadium</span></div>
+        <h3 class="ev-name">Burna Boy — African Giant World Tour</h3>
+      </div>
+      <div class="ev-foot">
+        <div class="ev-price-grp"><span class="ev-from">From</span><span class="ev-price">KES 4,500</span></div>
+        <div class="ev-sold">
+          <span class="ev-pct hot">82% sold</span>
+          <div class="ev-bar"><div class="ev-fill hot" style="width:82%"></div></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Side card 1 -->
+    <article class="ev-card ev-side" role="button" tabindex="0" data-event="KPL Champions Finals 2026" data-meta="SUN 3 JUL 2026 · 15:00 · Nyayo Stadium, Nairobi" data-ico="⚽" data-price="1200">
+      <div class="ev-img">
+        <div class="ev-img-bg" style="background:linear-gradient(150deg,#001600,#002e00)"></div>
+        <div class="ev-img-shade"></div>
+        <div class="ev-corner ev-corner-l"><span class="tag tag-l">Sports</span></div>
+        <div class="ev-corner ev-corner-r"><span class="tag tag-g">Nairobi</span></div>
+      </div>
+      <div class="ev-body">
+        <div class="ev-meta"><span>SUN · 3 JUL 2026</span><span>15:00</span></div>
+        <h3 class="ev-name">KPL Champions Finals 2026</h3>
+      </div>
+      <div class="ev-foot">
+        <div class="ev-price-grp"><span class="ev-from">From</span><span class="ev-price">KES 1,200</span></div>
+        <div class="ev-sold"><span class="ev-pct">65% sold</span><div class="ev-bar"><div class="ev-fill" style="width:65%"></div></div></div>
+      </div>
+    </article>
+
+    <!-- Side card 2 -->
+    <article class="ev-card ev-side" role="button" tabindex="0" data-event="AfroFest 2026" data-meta="FRI 19 JUL 2026 · 17:00 · Uhuru Gardens, Nairobi" data-ico="🎸" data-price="3000">
+      <div class="ev-img">
+        <div class="ev-img-bg" style="background:linear-gradient(150deg,#1c0a00,#2e1400)"></div>
+        <div class="ev-img-shade"></div>
+        <div class="ev-corner ev-corner-l">
+          <span class="live-pill"><span class="blink-dot"></span>Selling Fast</span>
+          <span class="tag tag-a">Festival</span>
+        </div>
+      </div>
+      <div class="ev-body">
+        <div class="ev-meta"><span>FRI · 19 JUL 2026</span><span>17:00</span></div>
+        <h3 class="ev-name">AfroFest 2026</h3>
+      </div>
+      <div class="ev-foot">
+        <div class="ev-price-grp"><span class="ev-from">From</span><span class="ev-price">KES 3,000</span></div>
+        <div class="ev-sold"><span class="ev-pct critical">94% sold</span><div class="ev-bar"><div class="ev-fill hot" style="width:94%;background:var(--amber)"></div></div></div>
+      </div>
+    </article>
+  </div>
+
+  <!-- Row of 4 -->
+  <div class="events-row">
+    <article class="ev-card ev-card-sm" role="button" tabindex="0" data-event="Black Clover — Stage Play" data-meta="SAT 19 JUL 2026 · 19:00 · Kenya National Theatre, Nairobi" data-ico="🎭" data-price="2800">
+      <div class="ev-img"><div class="ev-img-bg" style="background:linear-gradient(135deg,#0a001c,#1a0030)"></div><div class="ev-img-shade"></div><div class="ev-corner ev-corner-l"><span class="tag tag-g">Theatre</span></div></div>
+      <div class="ev-body"><div class="ev-meta"><span>19 JUL</span></div><h3 class="ev-name">Black Clover — Stage Play</h3></div>
+      <div class="ev-foot"><div class="ev-price-grp"><span class="ev-from">From</span><span class="ev-price">KES 2,800</span></div><button class="btn btn-r" style="padding:7px 14px;font-size:.65rem">Buy</button></div>
+    </article>
+    <article class="ev-card ev-card-sm" role="button" tabindex="0" data-event="EA FC 2026 Kenya Championship" data-meta="SUN 10 AUG 2026 · 10:00 · KICC, Nairobi" data-ico="🎮" data-price="500">
+      <div class="ev-img"><div class="ev-img-bg" style="background:linear-gradient(135deg,#001a0a,#002e18)"></div><div class="ev-img-shade"></div><div class="ev-corner ev-corner-l"><span class="tag tag-l">Gaming</span></div></div>
+      <div class="ev-body"><div class="ev-meta"><span>10 AUG</span></div><h3 class="ev-name">EA FC 2026 Kenya Championship</h3></div>
+      <div class="ev-foot"><div class="ev-price-grp"><span class="ev-from">From</span><span class="ev-price">KES 500</span></div><button class="btn btn-r" style="padding:7px 14px;font-size:.65rem">Buy</button></div>
+    </article>
+    <article class="ev-card ev-card-sm" role="button" tabindex="0" data-event="Churchill Live — Season Finale" data-meta="FRI 5 SEP 2026 · 20:00 · Carnivore, Nairobi" data-ico="😂" data-price="1500">
+      <div class="ev-img"><div class="ev-img-bg" style="background:linear-gradient(135deg,#1a1800,#2c2800)"></div><div class="ev-img-shade"></div><div class="ev-corner ev-corner-l"><span class="tag tag-a">Comedy</span></div></div>
+      <div class="ev-body"><div class="ev-meta"><span>5 SEP</span></div><h3 class="ev-name">Churchill Live — Season Finale</h3></div>
+      <div class="ev-foot"><div class="ev-price-grp"><span class="ev-from">From</span><span class="ev-price">KES 1,500</span></div><button class="btn btn-r" style="padding:7px 14px;font-size:.65rem">Buy</button></div>
+    </article>
+    <article class="ev-card ev-card-sm" role="button" tabindex="0" data-event="Sauti Sol — Farewell Tour" data-meta="SAT 18 OCT 2026 · 19:30 · KICC Grounds, Nairobi" data-ico="🎤" data-price="5000">
+      <div class="ev-img"><div class="ev-img-bg" style="background:linear-gradient(135deg,#1a0505,#2e0a0a)"></div><div class="ev-img-shade"></div><div class="ev-corner ev-corner-l"><span class="live-pill"><span class="blink-dot"></span>97% Sold</span></div></div>
+      <div class="ev-body"><div class="ev-meta"><span>18 OCT</span></div><h3 class="ev-name">Sauti Sol — Farewell Tour</h3></div>
+      <div class="ev-foot"><div class="ev-price-grp"><span class="ev-from">From</span><span class="ev-price">KES 5,000</span></div><button class="btn btn-r" style="padding:7px 14px;font-size:.65rem">Buy</button></div>
+    </article>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CATEGORIES
+════════════════════════════════════════════════════════════ -->
+<section class="cats-sec wrap">
+  <div class="cats-rail">
+    <div class="cat"><div class="cat-ico">🎵</div><div class="cat-name">Concerts</div><div class="cat-n">148</div></div>
+    <div class="cat"><div class="cat-ico">⚽</div><div class="cat-name">Sports</div><div class="cat-n">96</div></div>
+    <div class="cat"><div class="cat-ico">🎭</div><div class="cat-name">Theatre</div><div class="cat-n">43</div></div>
+    <div class="cat"><div class="cat-ico">🎮</div><div class="cat-name">Gaming</div><div class="cat-n">31</div></div>
+    <div class="cat"><div class="cat-ico">😂</div><div class="cat-name">Comedy</div><div class="cat-n">27</div></div>
+    <div class="cat"><div class="cat-ico">🔥</div><div class="cat-name">Festivals</div><div class="cat-n">19</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PULSE MAP
+════════════════════════════════════════════════════════════ -->
+<section class="pulse-sec" id="pulse">
+  <div class="wrap">
+    <div class="pulse-layout">
+      <div class="pulse-text">
+        <p class="sec-label">Unique Feature</p>
+        <h2 class="sec-title">Live Crowd<br>Pulse Map</h2>
+        <p style="font-family:var(--fserif);font-style:italic;font-size:1rem;color:var(--stone);line-height:1.7;margin:16px 0 24px">Watch ticket demand surge across Kenya in real time. Hotter zones mean higher demand — and faster-moving prices. Be the first to act.</p>
+        <div class="pulse-kpis">
+          <div class="kpi"><div class="kpi-num" id="kpiUsers">3,241</div><div class="kpi-lbl">Active Users</div></div>
+          <div class="kpi"><div class="kpi-num" id="kpiViewing">847</div><div class="kpi-lbl">Viewing Now</div></div>
+          <div class="kpi"><div class="kpi-num">38</div><div class="kpi-lbl">Live Events</div></div>
+          <div class="kpi"><div class="kpi-num" id="kpiTpm">12/min</div><div class="kpi-lbl">Tickets/min</div></div>
+        </div>
+        <button class="btn btn-r" data-event="AfroFest 2026" data-meta="FRI 19 JUL 2026 · 17:00 · Uhuru Gardens, Nairobi" data-ico="🎸" data-price="3000">Get Tickets Now</button>
+      </div>
+      <div class="map-wrap">
+        <canvas id="pulseCanvas" width="520" height="520"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MARKETPLACE
+════════════════════════════════════════════════════════════ -->
+<section class="market-sec" id="market">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="sec-label">Fan-to-Fan Exchange</p><h2 class="sec-title">Ticket Marketplace</h2></div>
+      <a href="#" class="view-all">Browse all listings →</a>
+    </div>
+    <div class="sell-cta">
+      <div class="sell-cta-text">
+        <div class="eyebrow">Got spare tickets?</div>
+        <h3>Turn Them Into Cash</h3>
+        <p>List tickets in under 2 minutes. Set your price, choose instant or auction, and get paid via M-Pesa the same day your tickets sell.</p>
+      </div>
+      <button class="btn btn-l" id="sellCtaBtn">Start Selling →</button>
+    </div>
+    <div class="market-layout">
+      <aside class="filters-col">
+        <div class="filter-box">
+          <div class="filter-hed">Category</div>
+          <div class="f-opt on"  data-filter><div class="f-box"></div>Concerts (148)</div>
+          <div class="f-opt"     data-filter><div class="f-box"></div>Sports (96)</div>
+          <div class="f-opt"     data-filter><div class="f-box"></div>Theatre (43)</div>
+          <div class="f-opt"     data-filter><div class="f-box"></div>Gaming (31)</div>
+          <div class="f-opt"     data-filter><div class="f-box"></div>Comedy (27)</div>
+        </div>
+        <div class="filter-box">
+          <div class="filter-hed">Ticket Type</div>
+          <div class="f-opt"     data-filter><div class="f-box"></div>VIP</div>
+          <div class="f-opt on"  data-filter><div class="f-box"></div>Regular</div>
+          <div class="f-opt"     data-filter><div class="f-box"></div>Student</div>
+          <div class="f-opt"     data-filter><div class="f-box"></div>Early Bird</div>
+        </div>
+        <div class="filter-box">
+          <div class="filter-hed">Date Range</div>
+          <div class="f-opt on"  data-filter><div class="f-box"></div>This Week</div>
+          <div class="f-opt"     data-filter><div class="f-box"></div>This Month</div>
+          <div class="f-opt"     data-filter><div class="f-box"></div>Next 3 Months</div>
+          <div class="f-opt"     data-filter><div class="f-box"></div>All Upcoming</div>
+        </div>
+      </aside>
+      <div class="listings">
+        <div class="l-card" role="button" tabindex="0" data-event="Burna Boy — African Giant Tour" data-meta="SAT 14 JUN 2026 · 20:00 · Kasarani Stadium, Nairobi" data-ico="🎵" data-price="5200">
+          <div class="l-thumb">🎵</div>
+          <div class="l-details"><div class="l-name">Burna Boy — African Giant Tour</div><div class="l-meta">SAT 14 JUN 2026 · 20:00 · Kasarani Stadium, Nairobi</div><div class="l-tags"><span class="tag tag-r">Concert</span><span class="tag tag-g">VIP</span><span class="tag tag-g">2 tickets</span></div></div>
+          <div class="l-right"><div><div class="l-price">KES 5,200</div><div class="l-seller">@mwangi_ke ⭐4.9</div></div><button class="btn btn-r" style="padding:7px 16px;font-size:.65rem">Buy</button></div>
+        </div>
+        <div class="l-card" role="button" tabindex="0" data-event="KPL Champions Finals 2026" data-meta="SUN 3 JUL 2026 · 15:00 · Nyayo Stadium, Nairobi" data-ico="⚽" data-price="1400">
+          <div class="l-thumb">⚽</div>
+          <div class="l-details"><div class="l-name">KPL Champions Finals 2026</div><div class="l-meta">SUN 3 JUL 2026 · 15:00 · Nyayo Stadium, Nairobi</div><div class="l-tags"><span class="tag tag-l">Sports</span><span class="tag tag-g">Regular</span><span class="tag tag-g">4 tickets</span></div></div>
+          <div class="l-right"><div><div class="l-price">KES 1,400</div><div class="l-seller">@chebet_tz ⭐4.7</div></div><button class="btn btn-r" style="padding:7px 16px;font-size:.65rem">Buy</button></div>
+        </div>
+        <div class="l-card" role="button" tabindex="0" data-event="AfroFest 2026 — Early Entry" data-meta="FRI 19 JUL 2026 · 17:00 · Uhuru Gardens, Nairobi" data-ico="🎸" data-price="3500">
+          <div class="l-thumb">🎸</div>
+          <div class="l-details"><div class="l-name">AfroFest 2026 — Early Entry</div><div class="l-meta">FRI 19 JUL 2026 · 17:00 · Uhuru Gardens, Nairobi</div><div class="l-tags"><span class="tag tag-a">Festival</span><span class="tag tag-g">VIP</span><span class="tag tag-g">1 ticket</span></div></div>
+          <div class="l-right"><div><div class="l-price">KES 3,500</div><div class="l-seller">@akinyi_fm ⭐5.0</div></div><button class="btn btn-r" style="padding:7px 16px;font-size:.65rem">Buy</button></div>
+        </div>
+        <div class="l-card" role="button" tabindex="0" data-event="Sauti Sol — Farewell Tour" data-meta="SAT 18 OCT 2026 · 19:30 · KICC Grounds, Nairobi" data-ico="🎤" data-price="5800">
+          <div class="l-thumb">🎤</div>
+          <div class="l-details"><div class="l-name">Sauti Sol — Farewell Tour</div><div class="l-meta">SAT 18 OCT 2026 · 19:30 · KICC Grounds, Nairobi</div><div class="l-tags"><span class="tag tag-r">Concert</span><span class="tag tag-g">Floor</span><span class="tag tag-g">3 tickets</span></div></div>
+          <div class="l-right"><div><div class="l-price">KES 5,800</div><div class="l-seller">@omondi_xp ⭐4.8</div></div><button class="btn btn-r" style="padding:7px 16px;font-size:.65rem">Buy</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LIVE BIDS
+════════════════════════════════════════════════════════════ -->
+<section class="bids-sec" id="bids">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="sec-label">Real-Time Auction</p><h2 class="sec-title">Live Ticket Bids</h2></div>
+      <a href="#" class="view-all">All auctions →</a>
+    </div>
+    <div class="bids-grid">
+      <div class="bid-card">
+        <div class="bid-head">
+          <div class="bid-ev">Burna Boy — VIP Floor</div>
+          <div class="bid-sub"><span>1 ticket</span><span class="bid-timer" data-seconds="872">14:32</span></div>
+        </div>
+        <div class="bid-body">
+          <div class="bid-row">
+            <div class="bid-blk"><div class="bid-blk-lbl">Current Bid</div><div class="bid-blk-val live" id="bidVal0">KES 7,200</div></div>
+            <div class="bid-blk"><div class="bid-blk-lbl">Face Value</div><div class="bid-blk-val face">KES 4,500</div></div>
+          </div>
+          <div class="bid-progress"><div class="bid-prog-fill" style="width:72%"></div></div>
+          <div class="bid-entry">
+            <input class="bid-input" type="text" placeholder="KES 7,500+" data-bid="0">
+            <button class="bid-submit" data-bid-for="0">Bid</button>
+          </div>
+        </div>
+        <div class="bid-foot"><span>18 bids · 6 watchers</span><span class="bid-hot">High demand</span></div>
+      </div>
+      <div class="bid-card">
+        <div class="bid-head">
+          <div class="bid-ev">AfroFest — VIP Weekend Pass</div>
+          <div class="bid-sub"><span>2 tickets</span><span class="bid-timer" data-seconds="6130">1:42:10</span></div>
+        </div>
+        <div class="bid-body">
+          <div class="bid-row">
+            <div class="bid-blk"><div class="bid-blk-lbl">Current Bid</div><div class="bid-blk-val live" id="bidVal1">KES 8,900</div></div>
+            <div class="bid-blk"><div class="bid-blk-lbl">Face Value</div><div class="bid-blk-val face">KES 6,000</div></div>
+          </div>
+          <div class="bid-progress"><div class="bid-prog-fill" style="width:58%"></div></div>
+          <div class="bid-entry">
+            <input class="bid-input" type="text" placeholder="KES 9,200+" data-bid="1">
+            <button class="bid-submit" data-bid-for="1">Bid</button>
+          </div>
+        </div>
+        <div class="bid-foot"><span>11 bids · 22 watchers</span><span class="bid-hot">22 watching</span></div>
+      </div>
+      <div class="bid-card">
+        <div class="bid-head">
+          <div class="bid-ev">Sauti Sol — Front Row Pair</div>
+          <div class="bid-sub"><span>2 tickets</span><span class="bid-timer" data-seconds="188" style="color:var(--danger)">3:08</span></div>
+        </div>
+        <div class="bid-body">
+          <div class="bid-row">
+            <div class="bid-blk"><div class="bid-blk-lbl">Current Bid</div><div class="bid-blk-val live" id="bidVal2">KES 14,500</div></div>
+            <div class="bid-blk"><div class="bid-blk-lbl">Face Value</div><div class="bid-blk-val face">KES 10,000</div></div>
+          </div>
+          <div class="bid-progress"><div class="bid-prog-fill" style="width:91%"></div></div>
+          <div class="bid-entry">
+            <input class="bid-input" type="text" placeholder="KES 15,000+" data-bid="2">
+            <button class="bid-submit" data-bid-for="2">Bid</button>
+          </div>
+        </div>
+        <div class="bid-foot"><span>34 bids · 89 watchers</span><span class="bid-hot" style="color:var(--danger)">Ending soon!</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     AR PREVIEW
+════════════════════════════════════════════════════════════ -->
+<section class="ar-sec">
+  <div class="wrap">
+    <div class="ar-layout">
+      <div class="ar-text">
+        <div class="ar-label">✦ AR Ticket Preview</div>
+        <h2 class="ar-title">See Your Seat<br>Before You Buy</h2>
+        <p class="ar-sub">Point your phone at any seat number on the map and preview the exact view from that seat in augmented reality — before you commit.</p>
+        <ul class="ar-feats">
+          <li>360° venue walkthrough from any seat</li>
+          <li>Real stage visibility score per seat</li>
+          <li>Scan QR on ticket to verify authenticity instantly</li>
+          <li>NFC tap for seamless gate entry</li>
+        </ul>
+        <button class="btn btn-l">Try AR Preview →</button>
+      </div>
+      <div class="ar-visual" aria-hidden="true">
+        <div class="ar-ring"></div>
+        <div class="ar-ring"></div>
+        <div class="ar-ring"></div>
+        <div class="phone-mock">
+          <div class="phone-shell">
+            <div class="phone-screen">
+              <div class="phone-ticket">
+                <div class="phone-ticket-ev">BURNA BOY</div>
+                <div class="phone-ticket-seat">Section A · Row 4 · Seat 12</div>
+              </div>
+              <div class="scan-box">
+                <div class="scan-line"></div>
+              </div>
+              <div class="phone-status">Scan to Verify</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCHEDULE
+════════════════════════════════════════════════════════════ -->
+<section class="sched-sec" id="schedule">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="sec-label">Full Calendar</p><h2 class="sec-title">Upcoming Shows</h2></div>
+      <a href="#" class="view-all">Full schedule →</a>
+    </div>
+    <table class="sched-table" role="table">
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Event</th>
+          <th scope="col">City</th>
+          <th scope="col">Category</th>
+          <th scope="col">From</th>
+          <th scope="col">Status</th>
+          <th scope="col"><span class="sr-only">Action</span></th>
+        </tr>
+      </thead>
+      <tbody id="scheduleBody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     GROUP BUY
+════════════════════════════════════════════════════════════ -->
+<section class="group-sec" id="group">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="sec-label">Social Buying</p><h2 class="sec-title">Group Buy Deals</h2></div>
+      <a href="#" class="view-all">All deals →</a>
+    </div>
+    <div class="group-grid" id="groupGrid"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TESTIMONIALS
+════════════════════════════════════════════════════════════ -->
+<section class="trust-sec">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><p class="sec-label">Community</p><h2 class="sec-title">Trusted by Fans</h2></div>
+    </div>
+    <div class="trust-grid">
+      <div class="t-card"><div class="t-stars">★★★★★</div><p class="t-quote">"Bought Burna Boy tickets in 90 seconds, paid via M-Pesa and the digital ticket appeared instantly. This is how it should always work."</p><div class="t-author">MERCY K.</div><div class="t-handle">@mercyk_nbi</div></div>
+      <div class="t-card"><div class="t-stars">★★★★★</div><p class="t-quote">"The AR seat preview changed everything. I could see the stage from row 12 before committing. Ended up upgrading to row 4."</p><div class="t-author">BRIAN O.</div><div class="t-handle">@b_omondi</div></div>
+      <div class="t-card"><div class="t-stars">★★★★★</div><p class="t-quote">"Sold my AfroFest tickets in 8 minutes. Payment hit my M-Pesa before I even left the house. Zero stress, zero fees I didn't expect."</p><div class="t-author">AISHA M.</div><div class="t-handle">@aisha.msa</div></div>
+      <div class="t-card"><div class="t-stars">★★★★★</div><p class="t-quote">"Group buy saved us KES 6,000 total going to the KPL finals as a group of 15. Will be using this every single time."</p><div class="t-author">SAMUEL W.</div><div class="t-handle">@samuelw_ke</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════════════════════ -->
+<footer>
+  <div class="foot-grid">
+    <div>
+      <div class="logo foot-brand">VLT<span>X</span></div>
+      <p class="foot-tagline">Kenya's most original live event and ticket exchange — built for fans, by fans, with zero BS fees.</p>
+      <div class="foot-socials">
+        <button class="soc">𝕏</button>
+        <button class="soc">in</button>
+        <button class="soc">ig</button>
+        <button class="soc">yt</button>
+      </div>
+    </div>
+    <div>
+      <div class="foot-col-hed">Platform</div>
+      <ul class="foot-links">
+        <li><a href="#">Browse Events</a></li>
+        <li><a href="#">Marketplace</a></li>
+        <li><a href="#">Live Bids</a></li>
+        <li><a href="#">Group Buys</a></li>
+        <li><a href="#">AR Preview</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="foot-col-hed">Sellers</div>
+      <ul class="foot-links">
+        <li><a href="#">Start Selling</a></li>
+        <li><a href="#">Seller Dashboard</a></li>
+        <li><a href="#">Pricing & Fees</a></li>
+        <li><a href="#">Payouts</a></li>
+        <li><a href="#">Seller Protection</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="foot-col-hed">Help</div>
+      <ul class="foot-links">
+        <li><a href="#">Support Centre</a></li>
+        <li><a href="#">Buyer Guarantee</a></li>
+        <li><a href="#">Privacy Policy</a></li>
+        <li><a href="#">Terms of Service</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <div class="foot-copy">© 2026 VLTX Ltd. All rights reserved · Nairobi, Kenya</div>
+    <div class="foot-badges">
+      <span class="badge g">SSL Secured</span>
+      <span class="badge g">PCI DSS</span>
+      <span class="badge">M-Pesa Partner</span>
+      <span class="badge">256-bit AES</span>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODALS
+════════════════════════════════════════════════════════════ -->
+<div class="backdrop" id="buyBackdrop" role="dialog" aria-modal="true" aria-labelledby="buyModalTitle">
+  <div class="modal" id="buyModal">
+    <div class="modal-hd">
+      <span class="modal-hed-title" id="buyModalTitle">Purchase Tickets</span>
+      <button class="modal-x" data-close="buyBackdrop" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-bd" id="buyModalBody"></div>
+  </div>
+</div>
+
+<div class="backdrop" id="sellBackdrop" role="dialog" aria-modal="true" aria-labelledby="sellModalTitle">
+  <div class="modal">
+    <div class="modal-hd">
+      <span class="modal-hed-title" id="sellModalTitle">Sell Your Tickets</span>
+      <button class="modal-x" data-close="sellBackdrop" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div class="sell-steps">
+        <div class="sell-step on">1. Event</div>
+        <div class="sell-step">2. Details</div>
+        <div class="sell-step">3. Payout</div>
+      </div>
+      <div class="fld"><label>Event Name</label><input type="text" placeholder="e.g. Burna Boy — Nairobi 2026"></div>
+      <div class="frow">
+        <div class="fld"><label>Event Date</label><input type="date"></div>
+        <div class="fld"><label>Venue</label><input type="text" placeholder="Venue name"></div>
+      </div>
+      <div class="frow">
+        <div class="fld"><label>Ticket Type</label><input type="text" placeholder="VIP, Regular, Floor…"></div>
+        <div class="fld"><label>Number of Tickets</label><input type="number" placeholder="1" min="1" max="20"></div>
+      </div>
+      <div class="fld"><label>Asking Price (KES per ticket)</label><input type="number" placeholder="e.g. 5000" min="0"></div>
+      <div class="fld">
+        <label>Payout Method</label>
+        <div class="crypto-opts" style="margin-top:6px">
+          <button class="c-opt on" data-payout><span class="c-opt-ico">📱</span>M-Pesa</button>
+          <button class="c-opt" data-payout><span class="c-opt-ico">🏦</span>Bank Transfer</button>
+          <button class="c-opt" data-payout><span class="c-opt-ico">💳</span>Card</button>
+        </div>
+      </div>
+      <div class="fld"><label>M-Pesa Number</label><input type="tel" placeholder="07XXXXXXXX" id="sellPhone"></div>
+      <div style="background:rgba(181,239,6,.05);border:1px solid rgba(181,239,6,.2);border-radius:3px;padding:13px;margin-bottom:18px;font-size:.75rem;color:var(--stone);line-height:1.6">
+        Tickets are held securely until sold. Funds transfer within 24h of event date. VLTX Seller Protection covers all verified listings.
+      </div>
+      <button class="pay-cta" id="sellSubmitBtn">List My Tickets →</button>
+      <div class="sec-note"><span class="sec-note-ico">🔒</span>End-to-end encrypted · Zero upfront fees · VLTX Seller Guarantee</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST ZONE -->
+<div id="toast-zone" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* ═══════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════════ */
+const STATE = {
+  cartCount: 0,
+  // current modal purchase state
+  currentEvent: null,
+  currentQty: 1,
+  currentTab: 'mpesa',
+};
+
+/* ═══════════════════════════════════════════════════════════
+   CURSOR — smooth lag via rAF, not setInterval
+════════════════════════════════════════════════════════════ */
+(function initCursor() {
+  const dot = document.getElementById('cur-dot');
+  const ring = document.getElementById('cur-ring');
+  let mx = -100, my = -100;
+  let rx = -100, ry = -100;
+
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+
+  function tick() {
+    dot.style.transform  = `translate(${mx - 4}px, ${my - 4}px)`;
+    rx += (mx - rx) * .1;
+    ry += (my - ry) * .1;
+    ring.style.transform = `translate(${rx - 16}px, ${ry - 16}px)`;
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  // hover detection — delegate to body
+  document.addEventListener('mouseover', e => {
+    if (e.target.closest('button,a,[role=button],[tabindex]')) {
+      document.body.classList.add('hovering');
+    }
+  });
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest('button,a,[role=button],[tabindex]')) {
+      document.body.classList.remove('hovering');
+    }
+  });
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   TICKER
+════════════════════════════════════════════════════════════ */
+(function initTicker() {
+  const items = [
+    'Burna Boy — Nairobi, Jun 14',
+    'KPL Finals — Kasarani, Jul 3',
+    'AfroFest 2026 — Selling Fast',
+    'Black Clover Stage Play — Mombasa, Jul 19',
+    'Churchill Live — Sep 5',
+    'Sauti Sol Farewell — Oct 18',
+    'EA FC 2026 Championship — Aug 10',
+    'KPL Night of Champions — Aug 9',
+  ];
+  const track = document.getElementById('tickerTrack');
+  // duplicate for seamless loop
+  const all = [...items, ...items];
+  track.innerHTML = all.map(t =>
+    `<span class="ticker-item"><span class="ticker-dot"></span>${t}</span>`
+  ).join('');
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   BARCODE DECORATION
+════════════════════════════════════════════════════════════ */
+(function initBarcode() {
+  const el = document.getElementById('barcodeEl');
+  if (!el) return;
+  const widths = [2,1,3,1,2,1,1,3,2,1,2,3,1,2,1,3,1,2];
+  const heights = [28,20,28,22,28,18,26,28,20,28,24,28,18,28,22,28,20,26];
+  el.innerHTML = widths.map((w, i) =>
+    `<span style="width:${w}px;height:${heights[i]}px"></span>`
+  ).join('');
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   ANIMATED COUNTERS — IntersectionObserver triggered
+════════════════════════════════════════════════════════════ */
+(function initCounters() {
+  const els = document.querySelectorAll('.js-count');
+  if (!els.length) return;
+
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      const target = +el.dataset.target;
+      const dur = target > 10000 ? 2200 : 1400;
+      let start = null;
+      function step(ts) {
+        if (!start) start = ts;
+        const p = Math.min((ts - start) / dur, 1);
+        const eased = 1 - Math.pow(1 - p, 4);
+        el.textContent = Math.floor(eased * target).toLocaleString();
+        if (p < 1) requestAnimationFrame(step);
+        else el.textContent = target.toLocaleString() + (target === 120400 ? '+' : '');
+      }
+      requestAnimationFrame(step);
+      obs.unobserve(el);
+    });
+  }, { threshold: 0.5 });
+
+  els.forEach(el => obs.observe(el));
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   SEARCH PILLS
+════════════════════════════════════════════════════════════ */
+document.querySelectorAll('[data-pill]').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('[data-pill]').forEach(p => p.classList.remove('on'));
+    pill.classList.add('on');
+  });
+});
+
+/* search form */
+document.getElementById('searchForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const q = e.target.querySelector('input').value.trim();
+  if (q) toast('info', `Searching for "${q}"…`);
+});
+
+/* ═══════════════════════════════════════════════════════════
+   FILTER CHECKBOXES
+════════════════════════════════════════════════════════════ */
+document.querySelectorAll('[data-filter]').forEach(opt => {
+  opt.addEventListener('click', () => opt.classList.toggle('on'));
+});
+
+/* ═══════════════════════════════════════════════════════════
+   PULSE CANVAS
+════════════════════════════════════════════════════════════ */
+(function initPulse() {
+  const canvas = document.getElementById('pulseCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const S = 520;
+
+  const cities = [
+    { name: 'NAIROBI',  x: .5,  y: .55, r: 1.0,  col: '#c94b0a' },
+    { name: 'MOMBASA',  x: .72, y: .82, r: .55,  col: '#e8880b' },
+    { name: 'KISUMU',   x: .27, y: .52, r: .45,  col: '#b5ef06' },
+    { name: 'NAKURU',   x: .37, y: .44, r: .35,  col: '#e8880b' },
+    { name: 'ELDORET',  x: .29, y: .33, r: .30,  col: '#c94b0a' },
+    { name: 'NYERI',    x: .52, y: .37, r: .25,  col: '#e8880b' },
+    { name: 'THIKA',    x: .56, y: .48, r: .28,  col: '#b5ef06' },
+    { name: 'MALINDI',  x: .74, y: .70, r: .20,  col: '#c94b0a' },
+  ];
+
+  let t = 0;
+
+  function draw() {
+    t += .016;
+    ctx.clearRect(0, 0, S, S);
+
+    // Background
+    const bg = ctx.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
+    bg.addColorStop(0, '#181818');
+    bg.addColorStop(1, '#0a0a0a');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, S, S);
+
+    // Grid dots
+    ctx.fillStyle = 'rgba(40,40,40,.7)';
+    for (let x = 20; x < S; x += 36)
+      for (let y = 20; y < S; y += 36) {
+        ctx.beginPath();
+        ctx.arc(x, y, .8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+    // Connection lines between nearby cities
+    for (let i = 0; i < cities.length; i++) {
+      for (let j = i + 1; j < cities.length; j++) {
+        const a = cities[i], b = cities[j];
+        const ax = a.x * S, ay = a.y * S;
+        const bx = b.x * S, by = b.y * S;
+        const d = Math.hypot(ax - bx, ay - by);
+        if (d > 190) continue;
+        const alpha = (1 - d / 190) * .35;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.strokeStyle = `rgba(42,42,42,${alpha})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // Pulse rings & glows
+    cities.forEach(c => {
+      const x = c.x * S, y = c.y * S;
+      const maxR = 44 * c.r;
+
+      // Glow
+      const grd = ctx.createRadialGradient(x, y, 0, x, y, 30 * c.r);
+      grd.addColorStop(0, c.col + '44');
+      grd.addColorStop(1, 'transparent');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(x, y, 30 * c.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 3 staggered rings
+      for (let p = 0; p < 3; p++) {
+        const phase = (t + p * .9) % 2.7;
+        const radius = (phase / 2.7) * maxR;
+        const alpha = 1 - phase / 2.7;
+        const hex = Math.floor(alpha * 200).toString(16).padStart(2, '0');
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = c.col + hex;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      // Core dot
+      ctx.beginPath();
+      ctx.arc(x, y, 4.5 * c.r, 0, Math.PI * 2);
+      ctx.fillStyle = c.col;
+      ctx.fill();
+
+      // Label
+      ctx.fillStyle = 'rgba(236,229,213,.65)';
+      ctx.font = `${9 + 4 * c.r}px "DM Mono", monospace`;
+      ctx.letterSpacing = '.1em';
+      ctx.fillText(c.name, x + 8 * c.r, y - 8 * c.r);
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  // Flicker the KPIs
+  setInterval(() => {
+    document.getElementById('kpiUsers').textContent  = (3000 + Math.floor(Math.random() * 500)).toLocaleString();
+    document.getElementById('kpiViewing').textContent = (700  + Math.floor(Math.random() * 250)).toLocaleString();
+    document.getElementById('kpiTpm').textContent     = (8   + Math.floor(Math.random() * 14)) + '/min';
+  }, 2600);
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   SCHEDULE TABLE — data-driven, no HTML soup
+════════════════════════════════════════════════════════════ */
+(function buildSchedule() {
+  const rows = [
+    { date:'14 JUN', name:'Burna Boy — African Giant Tour', venue:'Kasarani Stadium', city:'Nairobi', cat:'Concert', tagCls:'tag-r', price:'KES 4,500', avail:'Few left', availCls:'low', ev:'Burna Boy — African Giant Tour', meta:'SAT 14 JUN 2026 · 20:00 · Kasarani Stadium, Nairobi', ico:'🎵', p:4500 },
+    { date:'3 JUL',  name:'KPL Champions Finals 2026',     venue:'Nyayo Stadium',    city:'Nairobi', cat:'Sports',  tagCls:'tag-l', price:'KES 1,200', avail:'Available', availCls:'ok', ev:'KPL Champions Finals 2026', meta:'SUN 3 JUL 2026 · 15:00 · Nyayo Stadium, Nairobi', ico:'⚽', p:1200 },
+    { date:'19 JUL', name:'AfroFest 2026',                 venue:'Uhuru Gardens',    city:'Nairobi', cat:'Festival',tagCls:'tag-a', price:'KES 3,000', avail:'Last few',  availCls:'low', ev:'AfroFest 2026', meta:'FRI 19 JUL 2026 · 17:00 · Uhuru Gardens, Nairobi', ico:'🎸', p:3000 },
+    { date:'19 JUL', name:'Black Clover — Stage Play',     venue:'National Theatre', city:'Nairobi', cat:'Theatre', tagCls:'tag-g', price:'KES 2,800', avail:'Available', availCls:'ok', ev:'Black Clover — Stage Play', meta:'SAT 19 JUL 2026 · 19:00 · Kenya National Theatre, Nairobi', ico:'🎭', p:2800 },
+    { date:'10 AUG', name:'EA FC 2026 Kenya Championship', venue:'KICC',             city:'Nairobi', cat:'Gaming',  tagCls:'tag-l', price:'KES 500',   avail:'Available', availCls:'ok', ev:'EA FC 2026 Kenya Championship', meta:'SUN 10 AUG 2026 · 10:00 · KICC, Nairobi', ico:'🎮', p:500 },
+    { date:'5 SEP',  name:'Churchill Live — Season Finale',venue:'Carnivore',        city:'Nairobi', cat:'Comedy',  tagCls:'tag-a', price:'KES 1,500', avail:'Available', availCls:'ok', ev:'Churchill Live — Season Finale', meta:'FRI 5 SEP 2026 · 20:00 · Carnivore, Nairobi', ico:'😂', p:1500 },
+    { date:'18 OCT', name:'Sauti Sol — Farewell Tour',     venue:'KICC Grounds',     city:'Nairobi', cat:'Concert', tagCls:'tag-r', price:'KES 5,000', avail:'Few left',  availCls:'low', ev:'Sauti Sol — Farewell Tour', meta:'SAT 18 OCT 2026 · 19:30 · KICC Grounds, Nairobi', ico:'🎤', p:5000 },
+  ];
+  const tbody = document.getElementById('scheduleBody');
+  tbody.innerHTML = rows.map(r => `
+    <tr data-event="${r.ev}" data-meta="${r.meta}" data-ico="${r.ico}" data-price="${r.p}" role="button" tabindex="0">
+      <td><span class="s-date">${r.date}</span></td>
+      <td><div class="s-name">${r.name}</div><div class="s-venue">${r.venue}</div></td>
+      <td>${r.city}</td>
+      <td><span class="tag ${r.tagCls}">${r.cat}</span></td>
+      <td>${r.price}</td>
+      <td><span class="s-avail ${r.availCls}">${r.avail}</span></td>
+      <td><button class="btn btn-r" style="padding:7px 16px;font-size:.65rem">Buy</button></td>
+    </tr>
+  `).join('');
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   GROUP BUY — data-driven
+════════════════════════════════════════════════════════════ */
+(function buildGroups() {
+  const deals = [
+    { ev:'Burna Boy — Group of 10', sub:'15% off · 4 spots left', disc:15, joined:6, total:10, price:3825, ico:'🎵', meta:'SAT 14 JUN 2026 · Kasarani Stadium',
+      avatars:[{i:'MK',c:'#c94b0a'},{i:'AB',c:'#e8880b'},{i:'CE',c:'#b5ef06'},{i:'+3',c:'#3a3630'}] },
+    { ev:'AfroFest — Crew Pack (20)', sub:'20% off · 9 spots left', disc:20, joined:11, total:20, price:2400, ico:'🎸', meta:'FRI 19 JUL 2026 · Uhuru Gardens',
+      avatars:[{i:'TN',c:'#28c76f'},{i:'PO',c:'#c94b0a'},{i:'WM',c:'#e8880b'},{i:'+8',c:'#3a3630'}] },
+    { ev:'KPL Finals — Block (15)', sub:'10% off · 2 spots left', disc:10, joined:13, total:15, price:1080, ico:'⚽', meta:'SUN 3 JUL 2026 · Nyayo Stadium',
+      avatars:[{i:'SO',c:'#b5ef06'},{i:'JK',c:'#c94b0a'},{i:'FM',c:'#28c76f'},{i:'+10',c:'#3a3630'}] },
+  ];
+  document.getElementById('groupGrid').innerHTML = deals.map(d => `
+    <div class="g-card">
+      <div class="g-head">
+        <div><div class="g-ev">${d.ev}</div><div class="g-sub">${d.sub}</div></div>
+        <span class="tag tag-l">${d.disc}% OFF</span>
+      </div>
+      <div class="g-body">
+        <div class="g-progress-lbl"><span>Group progress</span><span>${d.joined} / ${d.total} joined</span></div>
+        <div class="g-bar-track"><div class="g-bar-fill" style="width:${(d.joined/d.total*100).toFixed(0)}%"></div></div>
+        <div class="g-avatars">
+          ${d.avatars.map(a => `<div class="g-av" style="background:${a.c};color:${a.c==='#b5ef06'||a.c==='#28c76f'?'#000':'#fff'}">${a.i}</div>`).join('')}
+        </div>
+        <div class="g-discount">
+          <div class="g-disc-pct">${d.disc}%</div>
+          <div class="g-disc-lbl">Discount per ticket when full</div>
+        </div>
+      </div>
+      <div class="g-actions">
+        <button class="btn btn-r" style="flex:1" data-event="${d.ev} — Group Ticket" data-meta="${d.meta}" data-ico="${d.ico}" data-price="${d.price}">Join Group</button>
+        <button class="btn btn-blk" style="padding:11px 14px">Share</button>
+      </div>
+    </div>
+  `).join('');
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   BID TIMERS — single rAF-driven loop
+════════════════════════════════════════════════════════════ */
+(function initBidTimers() {
+  const timers = document.querySelectorAll('.bid-timer[data-seconds]');
+  const remaining = Array.from(timers).map(el => +el.dataset.seconds);
+  let last = Date.now();
+
+  function tick() {
+    const now = Date.now();
+    const delta = (now - last) / 1000;
+    last = now;
+
+    timers.forEach((el, i) => {
+      remaining[i] = Math.max(0, remaining[i] - delta);
+      const s = Math.floor(remaining[i]);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      el.textContent = h > 0
+        ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+        : `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+      if (s < 60) el.style.color = 'var(--danger)';
+      if (s === 0) el.textContent = 'ENDED';
+    });
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+
+/* BID SUBMISSION */
+document.querySelectorAll('[data-bid-for]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const idx = btn.dataset.bidFor;
+    const inp = document.querySelector(`[data-bid="${idx}"]`);
+    const raw = inp.value.replace(/[^\d]/g, '');
+    const val = parseInt(raw, 10);
+    if (!raw || val < 1000) {
+      toast('err', 'Enter a valid bid amount (min KES 1,000)');
+      return;
+    }
+    document.getElementById(`bidVal${idx}`).textContent = 'KES ' + val.toLocaleString();
+    inp.value = '';
+    toast('ok', 'Bid placed — you are the current highest bidder!');
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL SYSTEM — unified, no duplicate render functions
+════════════════════════════════════════════════════════════ */
+function openModal(id) {
+  const bd = document.getElementById(id);
+  bd.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  // trap focus to first focusable element
+  setTimeout(() => {
+    const first = bd.querySelector('button,input,select,[tabindex]');
+    if (first) first.focus();
+  }, 100);
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Close-button delegation
+document.querySelectorAll('[data-close]').forEach(btn => {
+  btn.addEventListener('click', () => closeModal(btn.dataset.close));
+});
+
+// Backdrop click
+document.querySelectorAll('.backdrop').forEach(bd => {
+  bd.addEventListener('click', e => {
+    if (e.target === bd) closeModal(bd.id);
+  });
+});
+
+// ESC key
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  document.querySelectorAll('.backdrop.open').forEach(bd => closeModal(bd.id));
+});
+
+/* BUY MODAL */
+function buildPaymentUI() {
+  const { currentEvent: ev, currentQty: qty, currentTab: tab } = STATE;
+  const base = ev.price * qty;
+  const fee  = Math.round(base * 0.05);
+  const total = base + fee;
+
+  const mpesaHTML = `
+    <div class="mpesa-box">
+      <div class="mpesa-logo-txt">M-PESA</div>
+      <div class="mpesa-note">Enter your Safaricom number. You'll receive an STK push to confirm payment in seconds. Instant and secure.</div>
+    </div>
+    <div class="fld"><label>M-Pesa Phone Number</label><input type="tel" id="mpesaInput" placeholder="07XXXXXXXX / 01XXXXXXXX" maxlength="12" autocomplete="tel"></div>`;
+
+  const cardHTML = `
+    <div class="fld"><label>Cardholder Name</label><input type="text" id="cardName" placeholder="Full name on card" autocomplete="cc-name"></div>
+    <div class="fld"><label>Card Number</label><input type="text" id="cardNum" placeholder="•••• •••• •••• ••••" maxlength="19" autocomplete="cc-number" inputmode="numeric"></div>
+    <div class="frow">
+      <div class="fld"><label>Expiry</label><input type="text" id="cardExp" placeholder="MM / YY" maxlength="7" autocomplete="cc-exp"></div>
+      <div class="fld"><label>CVV</label><input type="text" id="cardCvv" placeholder="•••" maxlength="4" autocomplete="cc-csc" inputmode="numeric"></div>
+    </div>`;
+
+  const cryptoHTML = `
+    <div class="crypto-opts">
+      <button class="c-opt on" data-crypto><span class="c-opt-ico">₿</span>Bitcoin</button>
+      <button class="c-opt" data-crypto><span class="c-opt-ico">Ξ</span>Ethereum</button>
+      <button class="c-opt" data-crypto><span class="c-opt-ico">◎</span>USDT</button>
+    </div>
+    <div class="fld"><label>Wallet Address (auto-generated)</label><input type="text" value="bc1qvltx_${Date.now().toString(36)}" readonly style="opacity:.45;font-size:.7rem;letter-spacing:.06em" aria-label="Generated wallet address"></div>`;
+
+  const payContent = tab === 'mpesa' ? mpesaHTML : tab === 'card' ? cardHTML : cryptoHTML;
+
+  document.getElementById('buyModalTitle').textContent = ev.name;
+  document.getElementById('buyModalBody').innerHTML = `
+    <div class="ev-summary">
+      <div class="ev-sum-ico">${ev.ico}</div>
+      <div>
+        <div class="ev-sum-name">${ev.name}</div>
+        <div class="ev-sum-meta">${ev.meta}</div>
+      </div>
+      <div class="ev-sum-price">KES ${ev.price.toLocaleString()}</div>
+    </div>
+
+    <div class="qty-row">
+      <span class="qty-lbl">Tickets</span>
+      <div class="qty-ctl">
+        <button class="qty-dec" id="qtyDec" aria-label="Decrease quantity">−</button>
+        <span class="qty-val" id="qtyVal">${qty}</span>
+        <button class="qty-inc" id="qtyInc" aria-label="Increase quantity">+</button>
+      </div>
+    </div>
+
+    <div class="pay-tabs" role="tablist">
+      <button class="pay-tab ${tab==='mpesa' ?'on':''}" data-tab="mpesa"  role="tab" aria-selected="${tab==='mpesa'}">📱 M-Pesa</button>
+      <button class="pay-tab ${tab==='card'  ?'on':''}" data-tab="card"   role="tab" aria-selected="${tab==='card'}">💳 Card</button>
+      <button class="pay-tab ${tab==='crypto'?'on':''}" data-tab="crypto" role="tab" aria-selected="${tab==='crypto'}">₿ Crypto</button>
+    </div>
+
+    ${payContent}
+
+    <div class="order-box">
+      <div class="o-row"><span>${qty}× ticket${qty > 1 ? 's' : ''}</span><span>KES ${base.toLocaleString()}</span></div>
+      <div class="o-row"><span>Service fee (5%)</span><span>KES ${fee.toLocaleString()}</span></div>
+      <div class="o-row total"><span>Total</span><span class="v">KES ${total.toLocaleString()}</span></div>
+    </div>
+
+    <button class="pay-cta" id="payConfirmBtn">
+      ${tab === 'mpesa' ? 'Send M-Pesa Request' : 'Confirm Payment'} — KES ${total.toLocaleString()}
+    </button>
+    <div class="sec-note"><span class="sec-note-ico">🔒</span>256-bit AES · PCI DSS · Buyer Guarantee</div>
+  `;
+
+  // bind qty controls
+  document.getElementById('qtyDec').addEventListener('click', () => {
+    if (STATE.currentQty > 1) { STATE.currentQty--; buildPaymentUI(); }
+  });
+  document.getElementById('qtyInc').addEventListener('click', () => {
+    if (STATE.currentQty < 8) { STATE.currentQty++; buildPaymentUI(); }
+  });
+
+  // bind tab controls
+  document.querySelectorAll('[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      STATE.currentTab = btn.dataset.tab;
+      buildPaymentUI();
+    });
+  });
+
+  // bind crypto options
+  document.querySelectorAll('[data-crypto]').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('[data-crypto]').forEach(o => o.classList.remove('on'));
+      opt.classList.add('on');
+    });
+  });
+
+  // card number auto-formatting
+  const cardNumEl = document.getElementById('cardNum');
+  if (cardNumEl) {
+    cardNumEl.addEventListener('input', e => {
+      let v = e.target.value.replace(/\D/g, '').substring(0, 16);
+      e.target.value = v.replace(/(.{4})/g, '$1 ').trim();
+    });
+  }
+  const cardExpEl = document.getElementById('cardExp');
+  if (cardExpEl) {
+    cardExpEl.addEventListener('input', e => {
+      let v = e.target.value.replace(/\D/g, '').substring(0, 4);
+      if (v.length >= 3) v = v.substring(0,2) + ' / ' + v.substring(2);
+      e.target.value = v;
+    });
+  }
+
+  // bind confirm button
+  document.getElementById('payConfirmBtn').addEventListener('click', () => processPayment());
+}
+
+function openBuyModal(evData) {
+  STATE.currentEvent = evData;
+  STATE.currentQty   = 1;
+  STATE.currentTab   = 'mpesa';
+  buildPaymentUI();
+  openModal('buyBackdrop');
+}
+
+function processPayment() {
+  const body = document.getElementById('buyModalBody');
+  const method = STATE.currentTab;
+
+  // Validate M-Pesa
+  if (method === 'mpesa') {
+    const ph = document.getElementById('mpesaInput');
+    if (ph && !/^(07|01)\d{8}$/.test(ph.value.replace(/\s/g, ''))) {
+      toast('err', 'Enter a valid Safaricom number (07XX or 01XX)');
+      ph.focus();
+      return;
+    }
+  }
+
+  // Show spinner
+  body.innerHTML = `
+    <div class="processing">
+      <div class="proc-spinner"></div>
+      <div class="proc-title">Processing${method === 'mpesa' ? ' M-Pesa STK Push' : ''}…</div>
+      <div class="proc-sub">${method === 'mpesa' ? 'Check your phone for the M-Pesa prompt' : 'Verifying payment details securely…'}</div>
+    </div>`;
+
+  setTimeout(() => {
+    const ticketId = 'VLTX-' + Math.random().toString(36).substring(2, 11).toUpperCase();
+    body.innerHTML = `
+      <div class="success-view">
+        <div class="success-ring">✓</div>
+        <h3>Payment Confirmed!</h3>
+        <p>Your tickets for <strong>${STATE.currentEvent.name}</strong> have been issued. Check your email and SMS for your QR-coded digital ticket.</p>
+        <button class="btn btn-l">⬇ Download Ticket PDF</button>
+        <div class="ticket-id">Ticket ID: ${ticketId}</div>
+      </div>`;
+    STATE.cartCount++;
+    updateCart();
+    toast('ok', `Ticket booked via ${method === 'mpesa' ? 'M-Pesa' : method}! Check your SMS.`);
+  }, 2400);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EVENT DELEGATION — single listener on document
+   catches all [data-event] elements: cards, listing, table rows, group cards
+════════════════════════════════════════════════════════════ */
+document.addEventListener('click', e => {
+  // Close-buttons handled separately above
+  const trigger = e.target.closest('[data-event]');
+  if (!trigger) return;
+
+  // Don't re-fire if the inner Buy button was the direct target but the
+  // article card is also a trigger — allow event to bubble but only open once
+  e.stopPropagation();
+
+  openBuyModal({
+    name:  trigger.dataset.event,
+    meta:  trigger.dataset.meta,
+    ico:   trigger.dataset.ico,
+    price: parseInt(trigger.dataset.price, 10),
+  });
+});
+
+// keyboard activation for role=button cards
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const trigger = e.target.closest('[role=button][data-event]');
+  if (!trigger) return;
+  e.preventDefault();
+  openBuyModal({
+    name:  trigger.dataset.event,
+    meta:  trigger.dataset.meta,
+    ico:   trigger.dataset.ico,
+    price: parseInt(trigger.dataset.price, 10),
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SELL MODAL
+════════════════════════════════════════════════════════════ */
+function openSellModal() { openModal('sellBackdrop'); }
+
+document.getElementById('navSellBtn').addEventListener('click', openSellModal);
+document.getElementById('heroSellBtn').addEventListener('click', openSellModal);
+document.getElementById('sellCtaBtn').addEventListener('click', openSellModal);
+
+document.querySelectorAll('[data-payout]').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('[data-payout]').forEach(o => o.classList.remove('on'));
+    opt.classList.add('on');
+  });
+});
+
+document.getElementById('sellSubmitBtn').addEventListener('click', () => {
+  closeModal('sellBackdrop');
+  toast('ok', 'Listing submitted! Your tickets will be live within minutes.');
+});
+
+/* sell phone masking */
+const sellPhone = document.getElementById('sellPhone');
+if (sellPhone) {
+  sellPhone.addEventListener('input', e => {
+    e.target.value = e.target.value.replace(/[^\d+]/g, '').substring(0, 13);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NAV BUTTONS
+════════════════════════════════════════════════════════════ */
+document.getElementById('heroExploreBtn').addEventListener('click', () => {
+  document.getElementById('events').scrollIntoView({ behavior: 'smooth' });
+});
+
+document.getElementById('cart-btn').addEventListener('click', () => {
+  if (STATE.cartCount === 0) {
+    toast('info', 'Your cart is empty — browse events to add tickets');
+  } else {
+    toast('info', `You have ${STATE.cartCount} ticket${STATE.cartCount > 1 ? 's' : ''} in your order`);
+  }
+});
+
+document.getElementById('navBurger').addEventListener('click', function() {
+  this.classList.toggle('open');
+});
+
+function updateCart() {
+  const dot = document.getElementById('cartDot');
+  dot.textContent = STATE.cartCount;
+  dot.classList.toggle('show', STATE.cartCount > 0);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLL REVEAL — staggered, CSS-driven
+════════════════════════════════════════════════════════════ */
+(function initReveal() {
+  const targets = document.querySelectorAll(
+    '.ev-card,.bid-card,.g-card,.t-card,.l-card,.cat,.kpi'
+  );
+
+  // Set initial state via JS so it doesn't flash on slow connections
+  targets.forEach((el, i) => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(22px)';
+    el.style.transition = `opacity .5s ${i * 0.04}s var(--ease), transform .55s ${i * 0.04}s var(--ease)`;
+  });
+
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      entry.target.style.opacity = '1';
+      entry.target.style.transform = 'translateY(0)';
+      obs.unobserve(entry.target);
+    });
+  }, { threshold: 0.08 });
+
+  targets.forEach(el => obs.observe(el));
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   TOAST — queue-managed, no overlapping
+════════════════════════════════════════════════════════════ */
+function toast(type, msg) {
+  const zone = document.getElementById('toast-zone');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = { ok: '✓', info: '⚡', err: '✕' };
+  el.innerHTML = `<span class="toast-ico">${icons[type] || '•'}</span><span>${msg}</span>`;
+  zone.appendChild(el);
+  // Limit to 3 visible toasts
+  const all = zone.querySelectorAll('.toast');
+  if (all.length > 3) all[0].remove();
+
+  setTimeout(() => {
+    el.classList.add('dying');
+    setTimeout(() => el.remove(), 320);
+  }, 3800);
+}
+
+</script>
+</body>
+</html>
