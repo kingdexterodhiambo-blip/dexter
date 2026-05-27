@@ -2417,5 +2417,29 @@ function toast(type, msg) {
 }
 
 </script>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp }
+    from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+  import { getAuth }
+    from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+  import { getFirestore }
+    from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAogaFzPK1-vjUNs2SpVSalPEhKdRBaPk8",
+     authDomain: "vltx-a58b5.firebaseapp.com",
+    projectId: "vltx-a58b5",
+    storageBucket: "vltx-a58b5.firebasestorage.app",
+    messagingSenderId: "554541276303",
+    appId: "1:554541276303:web:7a3b0b9098916889c664fa"
+  };
+
+  const app         = initializeApp(firebaseConfig);
+  window.VLTX_AUTH  = getAuth(app);
+  window.VLTX_DB    = getFirestore(app);
+
+  console.log("Firebase connected ✓");
+</script>
 </body>
 </html>
