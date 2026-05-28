@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VLTX Admin Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:     #080808;
+  --deep:    #0f0f0f;
+  --well:    #141414;
+  --surface: #1c1c1c;
+  --line:    #282828;
+  --line2:   #333;
+  --rust:    #c94b0a;
+  --amber:   #e8880b;
+  --lime:    #b5ef06;
+  --bone:    #ece5d5;
+  --stone:   #6e6860;
+  --danger:  #e53030;
+  --ok:      #28c76f;
+  --fhd:     'Bebas Neue', sans-serif;
+  --fmono:   'DM Mono', monospace;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { -webkit-font-smoothing:antialiased; }
+body {
+  background:var(--ink); color:var(--bone);
+  font-family:var(--fmono); font-weight:300;
+  min-height:100vh;
+}
+a { color:inherit; text-decoration:none; }
+button { font-family:var(--fmono); cursor:pointer; }
+::-webkit-scrollbar { width:3px; }
+::-webkit-scrollbar-thumb { background:var(--rust); }
+
+/* ── LOGIN SCREEN ── */
+#loginScreen {
+  min-height:100vh; display:flex;
+  align-items:center; justify-content:center;
+  background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201,75,10,.12), transparent);
+}
+.login-box {
+  background:var(--well); border:1px solid var(--line2);
+  border-radius:8px; padding:40px 36px;
+  width:100%; max-width:400px;
+}
+.login-logo { font-family:var(--fhd); font-size:2.2rem; margin-bottom:4px; }
+.login-logo span { color:var(--lime); }
+.login-sub { font-size:.72rem; color:var(--stone); letter-spacing:.1em; text-transform:uppercase; margin-bottom:32px; }
+.fld { margin-bottom:14px; }
+.fld label { display:block; font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--stone); margin-bottom:5px; }
+.fld input {
+  width:100%; background:var(--ink); border:1px solid var(--line2);
+  border-radius:2px; padding:11px 13px; color:var(--bone);
+  font-family:var(--fmono); font-size:.82rem; outline:none;
+  transition:border-color .18s;
+}
+.fld input:focus { border-color:var(--rust); }
+.fld input::placeholder { color:var(--stone); }
+.login-btn {
+  width:100%; padding:13px; background:var(--rust); color:#fff;
+  border:none; border-radius:2px; font-family:var(--fmono);
+  font-size:.78rem; letter-spacing:.1em; text-transform:uppercase;
+  transition:background .2s; margin-top:4px;
+}
+.login-btn:hover { background:var(--amber); }
+.login-err {
+  display:none; background:rgba(229,48,48,.1);
+  border:1px solid var(--danger); border-radius:2px;
+  padding:9px 12px; font-size:.75rem; color:var(--danger);
+  margin-bottom:14px;
+}
+
+/* ── DASHBOARD ── */
+#dashboard { display:none; }
+
+.topbar {
+  background:var(--deep); border-bottom:1px solid var(--line);
+  padding:0 28px; height:58px;
+  display:flex; align-items:center; justify-content:space-between;
+  position:sticky; top:0; z-index:100;
+}
+.topbar-logo { font-family:var(--fhd); font-size:1.6rem; }
+.topbar-logo span { color:var(--lime); }
+.topbar-right { display:flex; align-items:center; gap:16px; }
+.admin-badge {
+  font-size:.6rem; letter-spacing:.14em; text-transform:uppercase;
+  padding:3px 10px; border:1px solid var(--rust);
+  border-radius:2px; color:var(--rust);
+}
+.admin-name { font-size:.75rem; color:var(--stone); }
+.signout-btn {
+  font-size:.68rem; letter-spacing:.08em; text-transform:uppercase;
+  background:none; border:1px solid var(--line2); color:var(--stone);
+  padding:6px 14px; border-radius:2px; transition:all .18s;
+}
+.signout-btn:hover { border-color:var(--danger); color:var(--danger); }
+
+.layout { display:grid; grid-template-columns:220px 1fr; min-height:calc(100vh - 58px); }
+
+/* Sidebar */
+.sidebar {
+  background:var(--deep); border-right:1px solid var(--line);
+  padding:24px 0;
+}
+.nav-section-lbl {
+  font-size:.58rem; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--stone); padding:0 20px; margin-bottom:8px; margin-top:20px;
+}
+.nav-section-lbl:first-child { margin-top:0; }
+.nav-link {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 20px; font-size:.75rem; letter-spacing:.06em;
+  color:var(--stone); transition:all .15s; border:none;
+  background:none; width:100%; text-align:left;
+  border-left:2px solid transparent;
+}
+.nav-link:hover { color:var(--bone); background:rgba(255,255,255,.03); }
+.nav-link.active { color:var(--bone); border-left-color:var(--rust); background:rgba(201,75,10,.06); }
+.nav-link .ico { font-size:.9rem; width:16px; }
+.nav-badge {
+  margin-left:auto; background:var(--rust); color:#fff;
+  font-size:.55rem; padding:2px 6px; border-radius:10px;
+}
+
+/* Main content */
+.main { padding:32px 28px; overflow-y:auto; }
+
+/* KPI cards */
+.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
+.kpi-card {
+  background:var(--well); border:1px solid var(--line);
+  border-radius:4px; padding:20px;
+}
+.kpi-card.highlight { border-color:var(--rust); }
+.kpi-label { font-size:.6rem; letter-spacing:.14em; text-transform:uppercase; color:var(--stone); margin-bottom:10px; }
+.kpi-value { font-family:var(--fhd); font-size:2.2rem; color:var(--bone); line-height:1; }
+.kpi-value.green { color:var(--lime); }
+.kpi-value.amber { color:var(--amber); }
+.kpi-sub { font-size:.65rem; color:var(--stone); margin-top:6px; }
+.kpi-trend { font-size:.65rem; margin-top:6px; }
+.kpi-trend.up { color:var(--ok); }
+.kpi-trend.down { color:var(--danger); }
+
+/* Section heading */
+.sec-hed {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:16px; padding-bottom:14px;
+  border-bottom:1px solid var(--line);
+}
+.sec-hed-title { font-family:var(--fhd); font-size:1.6rem; }
+.sec-hed-sub { font-size:.68rem; color:var(--stone); }
+
+/* Table */
+.data-table { width:100%; border-collapse:collapse; font-size:.76rem; }
+.data-table th {
+  font-size:.6rem; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--stone); text-align:left; padding:10px 14px;
+  border-bottom:1px solid var(--line2); white-space:nowrap;
+}
+.data-table td {
+  padding:12px 14px; border-bottom:1px solid var(--line);
+  vertical-align:middle;
+}
+.data-table tr:hover td { background:rgba(255,255,255,.02); }
+.data-table tr:last-child td { border-bottom:none; }
+
+/* Status pills */
+.status {
+  display:inline-block; font-size:.58rem; letter-spacing:.1em;
+  text-transform:uppercase; padding:3px 9px; border-radius:2px;
+}
+.status.confirmed { background:rgba(40,199,111,.12); color:var(--ok); border:1px solid rgba(40,199,111,.3); }
+.status.pending   { background:rgba(232,136,11,.12);  color:var(--amber); border:1px solid rgba(232,136,11,.3); }
+.status.failed    { background:rgba(229,48,48,.12);   color:var(--danger); border:1px solid rgba(229,48,48,.3); }
+
+/* Avatar */
+.avatar {
+  width:28px; height:28px; border-radius:50%;
+  background:var(--rust); color:#fff;
+  display:inline-flex; align-items:center; justify-content:center;
+  font-size:.65rem; font-weight:500; flex-shrink:0;
+}
+
+/* Panels (tabs) */
+.panel { display:none; }
+.panel.active { display:block; }
+
+/* Search bar */
+.table-toolbar {
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:16px; flex-wrap:wrap;
+}
+.search-input {
+  background:var(--well); border:1px solid var(--line2);
+  border-radius:2px; padding:8px 13px; color:var(--bone);
+  font-family:var(--fmono); font-size:.75rem; outline:none;
+  transition:border-color .18s; flex:1; min-width:180px;
+}
+.search-input:focus { border-color:var(--rust); }
+.search-input::placeholder { color:var(--stone); }
+.filter-select {
+  background:var(--well); border:1px solid var(--line2);
+  padding:8px 12px; color:var(--stone); font-family:var(--fmono);
+  font-size:.72rem; border-radius:2px; outline:none; appearance:none;
+}
+.filter-select:focus { border-color:var(--rust); color:var(--bone); }
+.export-btn {
+  background:none; border:1px solid var(--line2); color:var(--stone);
+  padding:8px 14px; border-radius:2px; font-family:var(--fmono);
+  font-size:.68rem; letter-spacing:.08em; text-transform:uppercase;
+  transition:all .18s;
+}
+.export-btn:hover { border-color:var(--lime); color:var(--lime); }
+
+/* Live dot */
+.live-dot {
+  width:7px; height:7px; border-radius:50%; background:var(--ok);
+  display:inline-block; animation:pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+
+/* Empty state */
+.empty-state {
+  text-align:center; padding:48px 20px;
+  color:var(--stone); font-size:.8rem;
+}
+.empty-state-ico { font-size:2.5rem; margin-bottom:12px; opacity:.4; }
+
+/* Activity feed */
+.activity-feed { display:flex; flex-direction:column; gap:0; }
+.activity-item {
+  display:flex; align-items:flex-start; gap:14px;
+  padding:12px 0; border-bottom:1px solid var(--line);
+}
+.activity-item:last-child { border-bottom:none; }
+.activity-ico {
+  width:32px; height:32px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:.9rem;
+}
+.activity-ico.buy  { background:rgba(181,239,6,.1); }
+.activity-ico.signup { background:rgba(40,199,111,.1); }
+.activity-ico.sell { background:rgba(201,75,10,.1); }
+.activity-body { flex:1; }
+.activity-title { font-size:.78rem; color:var(--bone); }
+.activity-meta  { font-size:.65rem; color:var(--stone); margin-top:2px; }
+.activity-time  { font-size:.62rem; color:var(--stone); flex-shrink:0; }
+
+/* Responsive */
+@media(max-width:900px) {
+  .layout { grid-template-columns:1fr; }
+  .sidebar { display:none; }
+  .kpi-row { grid-template-columns:1fr 1fr; }
+}
+@media(max-width:500px) {
+  .kpi-row { grid-template-columns:1fr; }
+  .main { padding:20px 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     LOGIN SCREEN
+══════════════════════════════════════ -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">VLT<span>X</span></div>
+    <div class="login-sub">Admin Portal</div>
+    <div class="login-err" id="loginErr"></div>
+    <div class="fld">
+      <label>Email Address</label>
+      <input type="email" id="loginEmail" placeholder="admin@vltx.co.ke" autocomplete="email">
+    </div>
+    <div class="fld">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="Your password" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn">Access Dashboard →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     DASHBOARD
+══════════════════════════════════════ -->
+<div id="dashboard">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-logo">VLT<span>X</span></div>
+    <div class="topbar-right">
+      <span class="live-dot"></span>
+      <span style="font-size:.68rem;color:var(--stone)">Live</span>
+      <span class="admin-badge">Admin</span>
+      <span class="admin-name" id="adminName">—</span>
+      <button class="signout-btn" id="signoutBtn">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="layout">
+
+    <!-- Sidebar nav -->
+    <aside class="sidebar">
+      <div class="nav-section-lbl">Overview</div>
+      <button class="nav-link active" data-panel="overview">
+        <span class="ico">▦</span> Dashboard
+      </button>
+      <button class="nav-link" data-panel="users">
+        <span class="ico">👤</span> Users
+        <span class="nav-badge" id="sideUserCount">0</span>
+      </button>
+
+      <div class="nav-section-lbl">Revenue</div>
+      <button class="nav-link" data-panel="payments">
+        <span class="ico">💳</span> Payments
+        <span class="nav-badge" id="sidePayCount">0</span>
+      </button>
+      <button class="nav-link" data-panel="tickets">
+        <span class="ico">🎫</span> Tickets
+      </button>
+
+      <div class="nav-section-lbl">Content</div>
+      <button class="nav-link" data-panel="events">
+        <span class="ico">🎵</span> Events
+      </button>
+      <button class="nav-link" data-panel="pending">
+        <span class="ico">⏳</span> Pending Approvals
+        <span class="nav-badge" id="sidePendingCount" style="background:var(--amber)">0</span>
+      </button>
+    </aside>
+
+    <!-- Main area -->
+    <main class="main">
+
+      <!-- ── OVERVIEW PANEL ── -->
+      <div class="panel active" id="panel-overview">
+        <div class="kpi-row">
+          <div class="kpi-card highlight">
+            <div class="kpi-label">Total Revenue</div>
+            <div class="kpi-value green" id="kpiRevenue">KES 0</div>
+            <div class="kpi-sub">All time confirmed payments</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Total Users</div>
+            <div class="kpi-value" id="kpiUsers">0</div>
+            <div class="kpi-trend up" id="kpiUsersTrend">↑ Loading…</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Tickets Sold</div>
+            <div class="kpi-value amber" id="kpiTickets">0</div>
+            <div class="kpi-sub">All confirmed orders</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Pending Approvals</div>
+            <div class="kpi-value" id="kpiPending">0</div>
+            <div class="kpi-sub">Events awaiting review</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 360px;gap:20px">
+          <!-- Recent activity -->
+          <div>
+            <div class="sec-hed">
+              <div>
+                <div class="sec-hed-title">Live Activity</div>
+                <div class="sec-hed-sub">Real-time sign-ups and purchases</div>
+              </div>
+              <span class="live-dot"></span>
+            </div>
+            <div class="activity-feed" id="activityFeed">
+              <div class="empty-state">
+                <div class="empty-state-ico">📡</div>
+                Waiting for activity…
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick stats -->
+          <div>
+            <div class="sec-hed">
+              <div>
+                <div class="sec-hed-title">Quick Stats</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="kpi-card" style="padding:14px 16px">
+                <div class="kpi-label">Today's Revenue</div>
+                <div class="kpi-value green" id="kpiToday" style="font-size:1.6rem">KES 0</div>
+              </div>
+              <div class="kpi-card" style="padding:14px 16px">
+                <div class="kpi-label">New Users Today</div>
+                <div class="kpi-value" id="kpiTodayUsers" style="font-size:1.6rem">0</div>
+              </div>
+              <div class="kpi-card" style="padding:14px 16px">
+                <div class="kpi-label">Most Popular Event</div>
+                <div style="font-family:var(--fhd);font-size:1rem;color:var(--amber);margin-top:6px" id="kpiTopEvent">—</div>
+              </div>
+              <div class="kpi-card" style="padding:14px 16px">
+                <div class="kpi-label">Top Payment Method</div>
+                <div style="font-family:var(--fhd);font-size:1rem;color:var(--bone);margin-top:6px" id="kpiTopMethod">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── USERS PANEL ── -->
+      <div class="panel" id="panel-users">
+        <div class="sec-hed">
+          <div>
+            <div class="sec-hed-title">Users</div>
+            <div class="sec-hed-sub" id="userCount">Loading…</div>
+          </div>
+        </div>
+        <div class="table-toolbar">
+          <input type="text" class="search-input" id="userSearch" placeholder="Search by name or email…">
+          <select class="filter-select" id="userRoleFilter">
+            <option value="">All roles</option>
+            <option value="admin">Admin</option>
+            <option value="user">User</option>
+          </select>
+          <button class="export-btn" id="exportUsersBtn">Export CSV</button>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Joined</th>
+              <th>Tickets</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr><td colspan="5"><div class="empty-state"><div class="empty-state-ico">👤</div>Loading users…</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── PAYMENTS PANEL ── -->
+      <div class="panel" id="panel-payments">
+        <div class="sec-hed">
+          <div>
+            <div class="sec-hed-title">Payments</div>
+            <div class="sec-hed-sub" id="paymentCount">Loading…</div>
+          </div>
+        </div>
+        <div class="table-toolbar">
+          <input type="text" class="search-input" id="paySearch" placeholder="Search by name or event…">
+          <select class="filter-select" id="payStatusFilter">
+            <option value="">All statuses</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="pending">Pending</option>
+            <option value="failed">Failed</option>
+          </select>
+          <button class="export-btn" id="exportPayBtn">Export CSV</button>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Event</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Status</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="paymentsTableBody">
+            <tr><td colspan="6"><div class="empty-state"><div class="empty-state-ico">💳</div>Loading payments…</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── TICKETS PANEL ── -->
+      <div class="panel" id="panel-tickets">
+        <div class="sec-hed">
+          <div><div class="sec-hed-title">Tickets Sold</div></div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Ticket ID</th><th>Event</th><th>Buyer</th><th>Qty</th><th>Amount</th><th>Date</th></tr>
+          </thead>
+          <tbody id="ticketsTableBody">
+            <tr><td colspan="6"><div class="empty-state"><div class="empty-state-ico">🎫</div>No tickets yet</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── EVENTS PANEL ── -->
+      <div class="panel" id="panel-events">
+        <div class="sec-hed">
+          <div><div class="sec-hed-title">Published Events</div></div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Event</th><th>Date</th><th>Category</th><th>Price</th><th>Tickets Left</th><th>Status</th></tr>
+          </thead>
+          <tbody id="eventsTableBody">
+            <tr><td colspan="6"><div class="empty-state"><div class="empty-state-ico">🎵</div>No events added yet</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── PENDING APPROVALS PANEL ── -->
+      <div class="panel" id="panel-pending">
+        <div class="sec-hed">
+          <div>
+            <div class="sec-hed-title">Pending Approvals</div>
+            <div class="sec-hed-sub">Events submitted by promoters awaiting your review</div>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Event</th><th>Submitted by</th><th>Date</th><th>Price</th><th>Action</th></tr>
+          </thead>
+          <tbody id="pendingTableBody">
+            <tr><td colspan="5"><div class="empty-state"><div class="empty-state-ico">⏳</div>No pending approvals</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     FIREBASE + ADMIN LOGIC
+══════════════════════════════════════ -->
+<script type="module">
+import { initializeApp }
+  from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword,
+  onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
+import {
+  getFirestore, collection, doc, getDoc,
+  onSnapshot, query, orderBy, updateDoc,
+  serverTimestamp, where, Timestamp
+} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+/* ── PASTE YOUR SAME CONFIG HERE ── */
+const firebaseConfig = {
+  apiKey:            "PASTE_YOUR_API_KEY",
+  authDomain:        "PASTE_YOUR_AUTH_DOMAIN",
+  projectId:         "PASTE_YOUR_PROJECT_ID",
+  storageBucket:     "PASTE_YOUR_STORAGE_BUCKET",
+  messagingSenderId: "PASTE_YOUR_SENDER_ID",
+  appId:             "PASTE_YOUR_APP_ID"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+/* ══════════════════════════════════
+   LOGIN
+══════════════════════════════════ */
+const loginBtn  = document.getElementById('loginBtn');
+const loginErr  = document.getElementById('loginErr');
+
+loginBtn.addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  if (!email || !pass) { showLoginErr('Please enter both email and password.'); return; }
+  loginBtn.textContent = 'Checking…';
+  loginBtn.disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (e) {
+    showLoginErr('Incorrect email or password.');
+    loginBtn.textContent = 'Access Dashboard →';
+    loginBtn.disabled = false;
+  }
+});
+
+// allow Enter key on password field
+document.getElementById('loginPass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loginBtn.click();
+});
+
+function showLoginErr(msg) {
+  loginErr.textContent = msg;
+  loginErr.style.display = 'block';
+}
+
+/* ══════════════════════════════════
+   AUTH GATE — only admins get in
+══════════════════════════════════ */
+onAuthStateChanged(auth, async user => {
+  if (!user) {
+    // Not signed in — show login
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('dashboard').style.display = 'none';
+    return;
+  }
+
+  // Check if this user has role:"admin" in Firestore
+  const snap = await getDoc(doc(db, 'users', user.uid));
+  const role = snap.data()?.role;
+
+  if (role !== 'admin') {
+    // Signed in but not admin — boot them out
+    await signOut(auth);
+    showLoginErr('Access denied. Admin accounts only.');
+    loginBtn.textContent = 'Access Dashboard →';
+    loginBtn.disabled = false;
+    return;
+  }
+
+  // ✅ Confirmed admin — show dashboard
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('adminName').textContent = user.displayName || user.email;
+
+  loadDashboard();
+});
+
+/* Sign out button */
+document.getElementById('signoutBtn').addEventListener('click', () => signOut(auth));
+
+/* ══════════════════════════════════
+   SIDEBAR NAVIGATION
+══════════════════════════════════ */
+document.querySelectorAll('[data-panel]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-panel]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + btn.dataset.panel).classList.add('active');
+  });
+});
+
+/* ══════════════════════════════════
+   LOAD DASHBOARD — all live listeners
+══════════════════════════════════ */
+function loadDashboard() {
+
+  /* ── USERS listener ── */
+  const usersQ = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+  onSnapshot(usersQ, snap => {
+    const count = snap.size;
+    document.getElementById('kpiUsers').textContent     = count;
+    document.getElementById('sideUserCount').textContent = count;
+    document.getElementById('userCount').textContent    = `${count} registered users`;
+
+    // Today's new users
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayUsers = snap.docs.filter(d => {
+      const ts = d.data().createdAt;
+      return ts && ts.toDate() >= today;
+    }).length;
+    document.getElementById('kpiTodayUsers').textContent = todayUsers;
+    document.getElementById('kpiUsersTrend').textContent = `↑ ${todayUsers} joined today`;
+
+    renderUsersTable(snap.docs);
+    renderActivityFeed(snap.docs, 'signup');
+  });
+
+  /* ── PAYMENTS listener ── */
+  const paymentsQ = query(collection(db, 'payments'), orderBy('createdAt', 'desc'));
+  onSnapshot(paymentsQ, snap => {
+    let totalRevenue = 0;
+    let todayRevenue = 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const methodCount = {};
+    const eventCount  = {};
+
+    snap.docs.forEach(d => {
+      const p = d.data();
+      if (p.status === 'confirmed') {
+        totalRevenue += p.amount || 0;
+        if (p.createdAt?.toDate() >= today) todayRevenue += p.amount || 0;
+        methodCount[p.method] = (methodCount[p.method] || 0) + 1;
+        eventCount[p.event]   = (eventCount[p.event]   || 0) + 1;
+      }
+    });
+
+    document.getElementById('kpiRevenue').textContent  = 'KES ' + Math.round(totalRevenue).toLocaleString();
+    document.getElementById('kpiToday').textContent    = 'KES ' + Math.round(todayRevenue).toLocaleString();
+    document.getElementById('kpiTickets').textContent  = snap.docs.filter(d => d.data().status === 'confirmed').length;
+    document.getElementById('sidePayCount').textContent = snap.size;
+    document.getElementById('paymentCount').textContent = `${snap.size} total transactions`;
+
+    // Top method
+    const topMethod = Object.entries(methodCount).sort((a,b) => b[1]-a[1])[0];
+    document.getElementById('kpiTopMethod').textContent = topMethod ? topMethod[0].toUpperCase() : '—';
+
+    // Top event
+    const topEvent = Object.entries(eventCount).sort((a,b) => b[1]-a[1])[0];
+    document.getElementById('kpiTopEvent').textContent = topEvent ? topEvent[0] : '—';
+
+    renderPaymentsTable(snap.docs);
+    renderTicketsTable(snap.docs);
+  });
+
+  /* ── PENDING EVENTS listener ── */
+  onSnapshot(collection(db, 'pending_events'), snap => {
+    document.getElementById('kpiPending').textContent       = snap.size;
+    document.getElementById('sidePendingCount').textContent = snap.size;
+    renderPendingTable(snap.docs);
+  });
+}
+
+/* ══════════════════════════════════
+   RENDER FUNCTIONS
+══════════════════════════════════ */
+function formatDate(ts) {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('en-KE', { day:'numeric', month:'short', year:'numeric' });
+}
+
+function initials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().substring(0,2);
+}
+
+/* Users table */
+let allUserDocs = [];
+function renderUsersTable(docs) {
+  allUserDocs = docs;
+  applyUserFilters();
+}
+
+function applyUserFilters() {
+  const search = document.getElementById('userSearch').value.toLowerCase();
+  const role   = document.getElementById('userRoleFilter').value;
+  const filtered = allUserDocs.filter(d => {
+    const u = d.data();
+    const matchSearch = !search || (u.name||'').toLowerCase().includes(search) || (u.email||'').toLowerCase().includes(search);
+    const matchRole   = !role   || u.role === role;
+    return matchSearch && matchRole;
+  });
+
+  const tbody = document.getElementById('usersTableBody');
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-ico">👤</div>No users match this filter</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(d => {
+    const u = d.data();
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar">${initials(u.name)}</div>
+        <span>${u.name || '—'}</span>
+      </div></td>
+      <td style="color:var(--stone)">${u.email || '—'}</td>
+      <td><span class="status ${u.role === 'admin' ? 'confirmed' : 'pending'}">${u.role || 'user'}</span></td>
+      <td style="color:var(--stone)">${formatDate(u.createdAt)}</td>
+      <td>${u.ticketsBought || 0}</td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('userSearch').addEventListener('input', applyUserFilters);
+document.getElementById('userRoleFilter').addEventListener('change', applyUserFilters);
+
+/* Payments table */
+let allPayDocs = [];
+function renderPaymentsTable(docs) {
+  allPayDocs = docs;
+  applyPayFilters();
+}
+
+function applyPayFilters() {
+  const search = document.getElementById('paySearch').value.toLowerCase();
+  const status = document.getElementById('payStatusFilter').value;
+  const filtered = allPayDocs.filter(d => {
+    const p = d.data();
+    const matchSearch = !search || (p.userName||'').toLowerCase().includes(search) || (p.event||'').toLowerCase().includes(search);
+    const matchStatus = !status || p.status === status;
+    return matchSearch && matchStatus;
+  });
+
+  const tbody = document.getElementById('paymentsTableBody');
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-ico">💳</div>No payments match this filter</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(d => {
+    const p = d.data();
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar">${initials(p.userName)}</div>
+        <span>${p.userName || '—'}</span>
+      </div></td>
+      <td>${p.event || '—'}</td>
+      <td style="font-family:var(--fhd);color:var(--lime)">KES ${(p.amount||0).toLocaleString()}</td>
+      <td style="text-transform:uppercase;font-size:.68rem">${p.method || '—'}</td>
+      <td><span class="status ${p.status}">${p.status || '—'}</span></td>
+      <td style="color:var(--stone)">${formatDate(p.createdAt)}</td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('paySearch').addEventListener('input', applyPayFilters);
+document.getElementById('payStatusFilter').addEventListener('change', applyPayFilters);
+
+/* Tickets table */
+function renderTicketsTable(payDocs) {
+  const confirmed = payDocs.filter(d => d.data().status === 'confirmed');
+  const tbody = document.getElementById('ticketsTableBody');
+  if (!confirmed.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-ico">🎫</div>No confirmed tickets yet</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = confirmed.map(d => {
+    const p = d.data();
+    return `<tr>
+      <td style="font-size:.65rem;color:var(--stone);font-family:var(--fmono)">${d.id.substring(0,12).toUpperCase()}</td>
+      <td>${p.event || '—'}</td>
+      <td>${p.userName || '—'}</td>
+      <td>${p.quantity || 1}</td>
+      <td style="font-family:var(--fhd);color:var(--lime)">KES ${(p.amount||0).toLocaleString()}</td>
+      <td style="color:var(--stone)">${formatDate(p.createdAt)}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* Pending approvals table */
+function renderPendingTable(docs) {
+  const tbody = document.getElementById('pendingTableBody');
+  if (!docs.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-ico">⏳</div>No pending approvals</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = docs.map(d => {
+    const e = d.data();
+    return `<tr>
+      <td>${e.eventName || '—'}</td>
+      <td style="color:var(--stone)">${e.submittedBy || '—'}</td>
+      <td style="color:var(--stone)">${formatDate(e.createdAt)}</td>
+      <td style="font-family:var(--fhd);color:var(--lime)">KES ${(e.price||0).toLocaleString()}</td>
+      <td>
+        <button onclick="approveEvent('${d.id}')"
+          style="background:var(--ok);color:#000;border:none;padding:5px 12px;border-radius:2px;font-family:var(--fmono);font-size:.65rem;margin-right:6px">
+          Approve
+        </button>
+        <button onclick="rejectEvent('${d.id}')"
+          style="background:none;border:1px solid var(--danger);color:var(--danger);padding:5px 12px;border-radius:2px;font-family:var(--fmono);font-size:.65rem">
+          Reject
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* Approve / reject pending events */
+window.approveEvent = async id => {
+  await updateDoc(doc(db, 'pending_events', id), { status:'approved', reviewedAt: serverTimestamp() });
+};
+window.rejectEvent = async id => {
+  await updateDoc(doc(db, 'pending_events', id), { status:'rejected', reviewedAt: serverTimestamp() });
+};
+
+/* Activity feed */
+function renderActivityFeed(userDocs) {
+  const feed = document.getElementById('activityFeed');
+  const recent = userDocs.slice(0, 8);
+  if (!recent.length) return;
+  feed.innerHTML = recent.map(d => {
+    const u = d.data();
+    return `<div class="activity-item">
+      <div class="activity-ico signup">🙋</div>
+      <div class="activity-body">
+        <div class="activity-title">${u.name || u.email} created an account</div>
+        <div class="activity-meta">${u.email}</div>
+      </div>
+      <div class="activity-time">${formatDate(u.createdAt)}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════
+   CSV EXPORT
+══════════════════════════════════ */
+function exportCSV(data, filename) {
+  const csv = data.map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('exportUsersBtn').addEventListener('click', () => {
+  const headers = ['Name','Email','Role','Joined','Tickets Bought'];
+  const rows = allUserDocs.map(d => {
+    const u = d.data();
+    return [u.name||'', u.email||'', u.role||'user', formatDate(u.createdAt), u.ticketsBought||0];
+  });
+  exportCSV([headers, ...rows], 'vltx-users.csv');
+});
+
+document.getElementById('exportPayBtn').addEventListener('click', () => {
+  const headers = ['User','Event','Amount (KES)','Method','Status','Date'];
+  const rows = allPayDocs.map(d => {
+    const p = d.data();
+    return [p.userName||'', p.event||'', p.amount||0, p.method||'', p.status||'', formatDate(p.createdAt)];
+  });
+  exportCSV([headers, ...rows], 'vltx-payments.csv');
+});
+
+</script>
+</body>
+</html>
