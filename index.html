@@ -2497,7 +2497,8 @@ function toast(type, msg) {
     getAuth,
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
-    signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     sendPasswordResetEmail,
     GoogleAuthProvider,
     onAuthStateChanged,
@@ -2527,6 +2528,17 @@ function toast(type, msg) {
   const auth         = window.VLTX_AUTH;
   const db           = window.VLTX_DB;
   const googleProvider = new GoogleAuthProvider();
+  // This runs when Google redirects the user back to your site
+  getRedirectResult(auth).then(async result => {
+    if (!result) return; // no redirect in progress, normal page load
+    await saveUserProfile(result.user);
+    closeModal('authBackdrop');
+    toast('ok', `Welcome, ${result.user.displayName}!`);
+  }).catch(err => {
+    if (err.code !== 'auth/cancelled-popup-request') {
+      console.error('Redirect error:', err);
+    }
+  });
 
   console.log("Firebase connected ✓");
 
@@ -2653,14 +2665,11 @@ function toast(type, msg) {
   async function handleGoogle() {
     clearAuthError();
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      await saveUserProfile(result.user);
-      closeModal('authBackdrop');
-      toast('ok', `Welcome, ${result.user.displayName}!`);
+      // Redirect to Google sign-in page instead of opening a popup
+      await signInWithRedirect(auth, googleProvider);
+      // Page will redirect away — code below runs AFTER user comes back
     } catch (err) {
-      if (err.code !== 'auth/popup-closed-by-user') {
-        showAuthError(friendlyError(err.code));
-      }
+      showAuthError(friendlyError(err.code));
     }
   }
 
