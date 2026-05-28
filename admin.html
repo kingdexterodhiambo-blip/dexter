@@ -42,6 +42,9 @@ button { font-family:var(--fmono); cursor:pointer; }
   align-items:center; justify-content:center;
   background:radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201,75,10,.12), transparent);
 }
+<button onclick="testLogin()" style="position:fixed;top:10px;right:10px;z-index:9999;background:red;color:white;padding:10px;border:none">
+  Test Login
+</button>
 .login-box {
   background:var(--well); border:1px solid var(--line2);
   border-radius:8px; padding:40px 36px;
@@ -545,7 +548,7 @@ import {
 
 /* ── PASTE YOUR SAME CONFIG HERE ── */
 const firebaseConfig = {
-   apiKey: "AIzaSyAogaFzPK1-vjUNs2SpVSalPEhKdRBaPk8",
+  apiKey: "AIzaSyAogaFzPK1-vjUNs2SpVSalPEhKdRBaPk8",
     authDomain: "vltx-a58b5.firebaseapp.com",
     projectId: "vltx-a58b5",
     storageBucket: "vltx-a58b5.firebasestorage.app",
@@ -905,6 +908,22 @@ document.getElementById('exportPayBtn').addEventListener('click', () => {
   });
   exportCSV([headers, ...rows], 'vltx-payments.csv');
 });
+window.testLogin = async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  console.log('Attempting login with:', email);
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, pass);
+    console.log('Login SUCCESS:', result.user.uid, result.user.email);
+    // Now check role
+    const snap = await getDoc(doc(db, 'users', result.user.uid));
+    console.log('Firestore doc exists:', snap.exists());
+    console.log('User data:', snap.data());
+    console.log('Role:', snap.data()?.role);
+  } catch(e) {
+    console.log('Login FAILED:', e.code, e.message);
+  }
+};
 
 </script>
 </body>
