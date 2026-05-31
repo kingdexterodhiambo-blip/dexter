@@ -1104,6 +1104,7 @@ footer {
   .sched-table td:nth-child(3) { display:none; }
 }
 </style>
+<script src="https://js.paystack.co/v1/inline.js"></script>
 </head>
 <body>
 
@@ -2316,41 +2317,61 @@ function openBuyModal(evData) {
 }
 
 function processPayment() {
-  const body = document.getElementById('buyModalBody');
-  const method = STATE.currentTab;
-
-  // Validate M-Pesa
-  if (method === 'mpesa') {
-    const ph = document.getElementById('mpesaInput');
-    if (ph && !/^(07|01)\d{8}$/.test(ph.value.replace(/\s/g, ''))) {
-      toast('err', 'Enter a valid Safaricom number (07XX or 01XX)');
-      ph.focus();
-      return;
-    }
+  // Must be signed in first
+  const user = window.VLTX_AUTH?.currentUser;
+  if (!user) {
+    closeModal('buyBackdrop');
+    openModal('authBackdrop');
+    toast('info', 'Please sign in first to complete your purchase.');
+    return;
   }
 
-  // Show spinner
+  const { currentEvent: ev, currentQty: qty } = STATE;
+  const base  = ev.price * qty;
+  const fee   = Math.round(base * 0.05);
+  const total = base + fee;
+
+  // Show loading state in modal
+  const body = document.getElementById('buyModalBody');
   body.innerHTML = `
     <div class="processing">
       <div class="proc-spinner"></div>
-      <div class="proc-title">Processing${method === 'mpesa' ? ' M-Pesa STK Push' : ''}…</div>
-      <div class="proc-sub">${method === 'mpesa' ? 'Check your phone for the M-Pesa prompt' : 'Verifying payment details securely…'}</div>
+      <div class="proc-title">Opening Paystack…</div>
+      <div class="proc-sub">You will be redirected to complete payment securely.</div>
     </div>`;
 
+  // Small delay so the spinner shows before Paystack popup opens
   setTimeout(() => {
-    const ticketId = 'VLTX-' + Math.random().toString(36).substring(2, 11).toUpperCase();
-    body.innerHTML = `
-      <div class="success-view">
-        <div class="success-ring">✓</div>
-        <h3>Payment Confirmed!</h3>
-        <p>Your tickets for <strong>${STATE.currentEvent.name}</strong> have been issued. Check your email and SMS for your QR-coded digital ticket.</p>
-        <button class="btn btn-l">⬇ Download Ticket PDF</button>
-        <div class="ticket-id">Ticket ID: ${ticketId}</div>
-      </div>`;
-    STATE.cartCount++;
-    updateCart();
-    toast('ok', `Ticket booked via ${method === 'mpesa' ? 'M-Pesa' : method}! Check your SMS.`);
-  }, 2400);
+    const handler = PaystackPop.setup({
+      key:      'pk_test_eec3d1d5863f44b6f4037f753f3c4ed16ab46f22
+      email:    user.email,
+      amount:   total * 100,   // Paystack uses kobo/cents — multiply by 100
+      currency: 'KES',
+      ref:      'VLTX-' + Date.now() + '-' + Math.random().toString(36).substr(2,6).toUpperCase(),
+      metadata: {
+        custom_fields: [
+          { display_name:'Buyer Name',  variable_name:'buyer_name',  value: user.displayName || user.email },
+          { display_name:'Event',       variable_name:'event',       value: ev.name },
+          { display_name:'Quantity',    variable_name:'quantity',    value: qty },
+          { display_name:'User ID',     variable_name:'user_id',     value: user.uid }
+        ]
+      },
+
+      callback: async response => {
+        // Payment confirmed by Paystack — save to Firestore
+        await savePaymentToFirestore(user, ev, qty, total, response.reference);
+      },
+
+      onClose: () => {
+        // User closed Paystack without paying — restore the modal
+        STATE.currentTab = 'mpesa';
+        buildPaymentUI();
+        toast('info', 'Payment cancelled. Your cart is still saved.');
+      }
+    });
+
+    handler.openIframe();
+  }, 400);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2506,11 +2527,15 @@ function toast(type, msg) {
     updateProfile
   } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js";
   import {
-    getFirestore,
-    doc,
-    setDoc,
-    serverTimestamp
-  } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+  getFirestore,
+  doc,
+  setDoc,
+  addDoc,
+  updateDoc,
+  increment,
+  collection,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
 
   /* ── Firebase init ── */
   const firebaseConfig = {
@@ -2541,6 +2566,76 @@ function toast(type, msg) {
   });
 
   console.log("Firebase connected ✓");
+  // Import addDoc and updateDoc at the top of your firebase script block
+  // Find your existing import from firestore and add these if not already there:
+  // addDoc, collection, doc, updateDoc, increment, serverTimestamp
+
+  window.savePaymentToFirestore = async (user, ev, qty, total, reference) => {
+    try {
+      const { addDoc, collection, doc,
+              updateDoc, increment, serverTimestamp: sts }
+        = await import("https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js");
+
+      const db = window.VLTX_DB;
+
+      // 1. Save payment record
+      const payRef = await addDoc(collection(db, 'payments'), {
+        userId:    user.uid,
+        userName:  user.displayName || user.email,
+        userEmail: user.email,
+        event:     ev.name,
+        eventMeta: ev.meta,
+        quantity:  qty,
+        amount:    total,
+        method:    'paystack',
+        status:    'confirmed',
+        reference: reference,
+        createdAt: sts()
+      });
+
+      // 2. Save individual ticket record
+      await addDoc(collection(db, 'tickets'), {
+        paymentId:  payRef.id,
+        userId:     user.uid,
+        userName:   user.displayName || user.email,
+        event:      ev.name,
+        quantity:   qty,
+        amount:     total,
+        reference:  reference,
+        ticketCode: 'VLTX-' + reference.substring(5, 14).toUpperCase(),
+        status:     'valid',
+        createdAt:  sts()
+      });
+
+      // 3. Update user's ticketsBought count
+      await updateDoc(doc(db, 'users', user.uid), {
+        ticketsBought: increment(qty)
+      });
+
+      // 4. Update UI
+      STATE.cartCount++;
+      updateCart();
+
+      // 5. Show success screen
+      const ticketCode = 'VLTX-' + reference.substring(5,14).toUpperCase();
+      document.getElementById('buyModalBody').innerHTML = `
+        <div class="success-view">
+          <div class="success-ring">✓</div>
+          <h3>Payment Confirmed!</h3>
+          <p>Your ${qty > 1 ? qty + ' tickets' : 'ticket'} for <strong>${ev.name}</strong>
+          have been issued. Check your email for your QR-coded digital ticket.</p>
+          <button class="btn btn-l" style="margin:0 auto">⬇ Download Ticket PDF</button>
+          <div class="ticket-id">Ticket Code: ${ticketCode}</div>
+          <div class="ticket-id" style="margin-top:4px">Ref: ${reference}</div>
+        </div>`;
+
+      toast('ok', `Payment confirmed! Ticket code: ${ticketCode}`);
+
+    } catch (err) {
+      console.error('Firestore save error:', err);
+      toast('err', 'Payment went through but ticket save failed. Contact support with ref: ' + reference);
+    }
+  };
 
   /* ════════════════════════════════════════════
      HELPER — save user profile to Firestore
