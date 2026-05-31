@@ -38,38 +38,53 @@ html { scroll-behavior:smooth; -webkit-font-smoothing:antialiased; }
 body {
   background:var(--ink); color:var(--bone);
   font-family:var(--fmono); font-weight:300;
-  overflow-x:hidden; cursor:none;
+  overflow-x:hidden;
   line-height:1.5;
 }
 a { color:inherit; text-decoration:none; }
-button,select { cursor:none; font-family:var(--fmono); }
+button { cursor:pointer; font-family:var(--fmono); }
+select { cursor:pointer; font-family:var(--fmono); }
+input, textarea { cursor:text; }
+
+/* Custom cursor — desktop pointer devices only */
+@media (pointer:fine) {
+  body { cursor:none; }
+  button, select, a, [role=button], [tabindex] { cursor:none; }
+  input, textarea { cursor:none; }
+}
 ::-webkit-scrollbar { width:3px; }
 ::-webkit-scrollbar-track { background:var(--ink); }
 ::-webkit-scrollbar-thumb { background:var(--rust); }
 
 /* ─────────────────────────────────────────────────────────────
-   CURSOR
+   CURSOR — only on true pointer (mouse) devices, never mobile
 ───────────────────────────────────────────────────────────── */
 #cur-dot, #cur-ring {
+  display:none; /* hidden by default — JS enables on pointer devices */
   position:fixed; top:0; left:0;
   pointer-events:none; z-index:9999;
   border-radius:50%; will-change:transform;
 }
-#cur-dot {
-  width:8px; height:8px;
-  background:var(--lime);
-  transform:translate(-50%,-50%);
-  mix-blend-mode:difference;
-  transition:width .18s var(--ease), height .18s var(--ease);
+@media (pointer:fine) {
+  #cur-dot {
+    display:block;
+    width:8px; height:8px;
+    background:var(--lime);
+    transform:translate(-4px,-4px);
+    mix-blend-mode:difference;
+    transition:width .18s var(--ease), height .18s var(--ease);
+  }
+  #cur-ring {
+    display:block;
+    width:32px; height:32px;
+    border:1px solid rgba(232,136,11,.6);
+    transform:translate(-16px,-16px);
+    transition:width .3s var(--ease), height .3s var(--ease), border-color .2s;
+    opacity:.7;
+  }
+  body.hovering #cur-dot  { width:16px; height:16px; }
+  body.hovering #cur-ring { width:48px; height:48px; border-color:var(--lime); }
 }
-#cur-ring {
-  width:32px; height:32px;
-  border:1px solid rgba(232,136,11,.6);
-  transform:translate(-50%,-50%);
-  transition:width .3s var(--ease), height .3s var(--ease), border-color .2s;
-}
-body.hovering #cur-dot  { width:20px; height:20px; }
-body.hovering #cur-ring { width:52px; height:52px; border-color:var(--lime); }
 
 /* ─────────────────────────────────────────────────────────────
    NOISE LAYER
@@ -347,8 +362,14 @@ h1.hero-title .outline {
 .ticket-artist {
   font-family:var(--fhd); font-size:2.2rem; color:rgba(201,75,10,.55);
   position:absolute; top:12px; left:14px; line-height:1; letter-spacing:.04em;
-  user-select:none;
+  user-select:none; -webkit-user-select:none;
 }
+/* Ensure all real content is selectable */
+p, h1, h2, h3, h4, li, td, .ev-name, .ev-meta, .l-name, .l-meta,
+.t-quote, .hero-sub, .sec-title, .bid-ev, .g-ev, .foot-tagline { user-select:text; -webkit-user-select:text; }
+/* Buttons and decorative elements not selectable */
+.btn, .tag, .pill, .live-pill, .blink-dot, .ticker-item,
+.nav-links, .logo, .cart-dot { user-select:none; -webkit-user-select:none; }
 .ticket-live {
   position:relative; z-index:1;
   font-size:.58rem; letter-spacing:.14em; text-transform:uppercase;
@@ -1059,18 +1080,19 @@ footer {
 .toast.err  .toast-ico { color:var(--danger); }
 
 /* ─────────────────────────────────────────────────────────────
-   RESPONSIVE
+   RESPONSIVE — TABLET 1080px
 ───────────────────────────────────────────────────────────── */
 @media(max-width:1080px) {
   .events-layout { grid-template-columns:1fr 1fr; }
   .ev-card-feat  { grid-column:1/3; grid-row:auto; }
+  .ev-card-feat .ev-img { height:320px; }
   .ev-side       { grid-column:auto; grid-row:auto; }
   .events-row    { grid-template-columns:1fr 1fr; }
   .pulse-layout  { grid-template-columns:1fr; }
   .market-layout { grid-template-columns:1fr; }
   .filters-col   { position:static; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .ar-layout     { grid-template-columns:1fr; }
-  .ar-visual     { min-height:280px; }
+  .ar-visual     { min-height:260px; }
   .bids-grid     { grid-template-columns:1fr 1fr; }
   .group-grid    { grid-template-columns:1fr 1fr; }
   .trust-grid    { grid-template-columns:1fr 1fr; }
@@ -1079,29 +1101,176 @@ footer {
   .hero-inner    { grid-template-columns:1fr; }
   .hero-stats-card { display:none; }
   .cats-rail     { grid-template-columns:repeat(3,1fr); }
+  .sell-cta      { gap:20px; }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   RESPONSIVE — MOBILE 680px
+───────────────────────────────────────────────────────────── */
 @media(max-width:680px) {
-  .wrap,.events-sec,.pulse-sec,.market-sec,.bids-sec,.ar-sec,.sched-sec,.group-sec,.trust-sec,.cats-sec,footer,
-  .search-strip,.sell-cta,.sec-head { padding-left:20px; padding-right:20px; }
-  h1.hero-title  { font-size:clamp(3.2rem,14vw,6rem); }
-  .hero          { padding:40px 20px 56px; }
-  .nav-links     { display:none; }
-  .nav-burger    { display:flex; }
-  .events-layout { grid-template-columns:1fr; }
+
+  /* Global spacing */
+  .wrap { padding:0 16px; }
+  .events-sec, .pulse-sec, .market-sec, .bids-sec,
+  .ar-sec, .sched-sec, .group-sec, .trust-sec,
+  .cats-sec, footer { padding-left:16px; padding-right:16px; }
+  .search-strip { padding:16px; }
+
+  /* Section headings */
+  .sec-head { flex-direction:column; align-items:flex-start; gap:10px; padding-bottom:16px; margin-bottom:24px; }
+  .sec-title { font-size:clamp(2rem,8vw,3rem); }
+
+  /* Nav */
+  .nav-inner   { padding:0 16px; gap:12px; height:56px; }
+  .nav-links   { display:none; }
+  .nav-burger  { display:flex; }
+  .nav-right   { gap:8px; }
+  .nav-right .btn-o { display:none; } /* hide "Sell Tickets" on very small nav */
+  #cart-btn    { width:36px; height:36px; }
+
+  /* Mobile menu drawer */
+  .mobile-menu {
+    position:fixed; top:56px; left:0; right:0; bottom:0;
+    background:rgba(8,8,8,.98); backdrop-filter:blur(20px);
+    z-index:700; padding:24px 20px;
+    display:none; flex-direction:column; gap:0;
+    border-top:1px solid var(--line);
+    overflow-y:auto;
+  }
+  .mobile-menu.open { display:flex; }
+  .mobile-menu a, .mobile-menu button {
+    display:block; padding:16px 0;
+    font-size:.9rem; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--stone); border-bottom:1px solid var(--line);
+    background:none; border-left:none; border-right:none; border-top:none;
+    text-align:left; width:100%; transition:color .15s;
+  }
+  .mobile-menu a:hover, .mobile-menu button:hover { color:var(--bone); }
+  .mobile-menu .mob-sell {
+    margin-top:20px; background:var(--rust); color:#fff;
+    border:none; border-radius:2px; padding:14px;
+    text-align:center; font-size:.78rem; letter-spacing:.1em;
+    text-transform:uppercase; border-bottom:none;
+  }
+
+  /* Hero */
+  .hero { padding:36px 16px 48px; min-height:auto; }
+  h1.hero-title { font-size:clamp(3rem,16vw,5.5rem); margin-bottom:20px; }
+  .hero-sub { font-size:.92rem; margin-bottom:28px; max-width:100%; }
+  .hero-cta { flex-direction:column; gap:10px; }
+  .hero-cta .btn { width:100%; justify-content:center; }
+  .hero-kicker { margin-bottom:14px; }
+
+  /* Events grid */
+  .events-layout { grid-template-columns:1fr; gap:12px; }
   .ev-card-feat  { grid-column:auto; }
-  .events-row    { grid-template-columns:1fr; }
-  .bids-grid,.group-grid,.trust-grid { grid-template-columns:1fr; }
-  .cats-rail     { grid-template-columns:repeat(2,1fr); }
-  .foot-grid     { grid-template-columns:1fr; }
-  .sell-cta      { flex-direction:column; }
-  .search-form   { flex-direction:column; height:auto; }
-  .search-form input[type=text],
-  .search-form select { border-right:1px solid var(--line2); border-radius:2px; padding:12px 14px; width:100%; }
-  .search-form button[type=submit] { padding:14px; border-radius:2px; width:100%; }
-  .sec-head      { flex-direction:column; align-items:flex-start; gap:10px; }
-  .ar-text       { padding:36px 28px; }
+  .ev-card-feat .ev-img { height:220px; }
+  .events-row    { grid-template-columns:1fr; gap:12px; }
+  .ev-card-sm .ev-img { height:140px; }
+
+  /* Categories */
+  .cats-sec { padding-top:0; padding-bottom:48px; }
+  .cats-rail { grid-template-columns:repeat(3,1fr); gap:8px; }
+  .cat { padding:16px 10px; gap:6px; }
+  .cat-ico { font-size:1.4rem; }
+  .cat-name { font-size:.55rem; }
+  .cat-n { font-size:1.1rem; }
+
+  /* Pulse section */
+  .pulse-sec { padding:48px 16px; }
+  .pulse-kpis { grid-template-columns:1fr 1fr; gap:10px; }
+  #pulseCanvas { width:100% !important; height:auto !important; }
+
+  /* Search */
+  .search-form { flex-direction:column; height:auto; gap:0; }
+  .search-form input[type=text] {
+    border-right:1px solid var(--line2); border-radius:2px 2px 0 0;
+    border-bottom:none; padding:13px 16px; width:100%; font-size:.82rem;
+  }
+  .search-form select {
+    border-right:1px solid var(--line2); border-radius:0;
+    padding:12px 16px; width:100%; border-bottom:none; color:var(--bone);
+  }
+  .search-form button[type=submit] {
+    padding:14px; border-radius:0 0 2px 2px; width:100%;
+  }
+  .search-pills { gap:6px; margin-top:12px; }
+  .pill { font-size:.58rem; padding:4px 11px; }
+
+  /* Marketplace */
+  .market-sec { padding:48px 16px; }
+  .sell-cta { flex-direction:column; padding:24px 20px; gap:16px; }
+  .sell-cta-text h3 { font-size:1.6rem; }
+  .sell-cta .btn { width:100%; justify-content:center; }
+  .filters-col { grid-template-columns:1fr; }
+.l-card { grid-template-columns:72px 1fr; }
+  .l-right { display:none; }
+  .l-details { padding:12px 14px; }
+  .l-name { font-size:.92rem; }
+  /* Show price inside l-details on mobile via a pseudo approach — add price to tags */
+  .l-card .l-details .l-mobile-price {
+    display:inline-block; font-family:var(--fhd); font-size:1.1rem;
+    color:var(--lime); margin-top:6px;
+  }
+
+  /* Bids */
+  .bids-sec { padding:48px 16px; }
+  .bids-grid { grid-template-columns:1fr; gap:12px; }
+
+  /* AR section */
+  .ar-sec { padding:48px 16px; }
+  .ar-text { padding:28px 20px; }
+  .ar-title { font-size:2.2rem; }
+  .ar-visual { min-height:220px; }
+
+  /* Schedule */
+  .sched-sec { padding:48px 16px; }
+  .sched-table { display:block; overflow-x:auto; -webkit-overflow-scrolling:touch; }
   .sched-table th:nth-child(3),
-  .sched-table td:nth-child(3) { display:none; }
+  .sched-table td:nth-child(3),
+  .sched-table th:nth-child(4),
+  .sched-table td:nth-child(4) { display:none; }
+
+  /* Group buy */
+  .group-sec { padding:48px 16px; }
+  .group-grid { grid-template-columns:1fr; gap:12px; }
+
+  /* Testimonials */
+  .trust-sec { padding:48px 16px; }
+  .trust-grid { grid-template-columns:1fr; gap:12px; }
+
+  /* Footer */
+  footer { padding:40px 16px 24px; }
+  .foot-grid { grid-template-columns:1fr; gap:28px; padding-bottom:28px; margin-bottom:20px; }
+  .foot-bottom { flex-direction:column; align-items:flex-start; gap:12px; }
+  .foot-badges { flex-wrap:wrap; }
+
+  /* Modal */
+  .backdrop { padding:0; align-items:flex-end; }
+  .modal {
+    border-radius:12px 12px 0 0;
+    max-height:92svh;
+    max-width:100%;
+  }
+  .modal-hd { padding:18px 20px; }
+  .modal-bd { padding:18px 20px; }
+
+  /* Sell CTA in modal */
+  .sell-steps { flex-wrap:nowrap; overflow-x:auto; }
+  .sell-step { min-width:70px; font-size:.58rem; }
+
+  /* Toast */
+  #toast-zone { bottom:16px; right:16px; left:16px; }
+  .toast { min-width:0; width:100%; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   RESPONSIVE — VERY SMALL 380px
+───────────────────────────────────────────────────────────── */
+@media(max-width:380px) {
+  h1.hero-title { font-size:3rem; }
+  .cats-rail { grid-template-columns:repeat(2,1fr); }
+  .nav-right .btn-r { padding:8px 14px; font-size:.65rem; }
 }
 </style>
 <script src="https://js.paystack.co/v1/inline.js"></script>
@@ -1145,6 +1314,16 @@ footer {
     </div>
   </div>
 </nav>
+
+<!-- MOBILE MENU DRAWER -->
+<div class="mobile-menu" id="mobileMenu" role="navigation" aria-label="Mobile menu">
+  <a href="#events"   onclick="closeMobileMenu()">Events</a>
+  <a href="#market"   onclick="closeMobileMenu()">Marketplace</a>
+  <a href="#bids"     onclick="closeMobileMenu()">Live Bids</a>
+  <a href="#schedule" onclick="closeMobileMenu()">Schedule</a>
+  <a href="#group"    onclick="closeMobileMenu()">Group Buy</a>
+  <button class="mob-sell" id="mobSellBtn">Sell My Tickets</button>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════════
      HERO
@@ -1422,22 +1601,22 @@ footer {
       <div class="listings">
         <div class="l-card" role="button" tabindex="0" data-event="Burna Boy — African Giant Tour" data-meta="SAT 14 JUN 2026 · 20:00 · Kasarani Stadium, Nairobi" data-ico="🎵" data-price="5200">
           <div class="l-thumb">🎵</div>
-          <div class="l-details"><div class="l-name">Burna Boy — African Giant Tour</div><div class="l-meta">SAT 14 JUN 2026 · 20:00 · Kasarani Stadium, Nairobi</div><div class="l-tags"><span class="tag tag-r">Concert</span><span class="tag tag-g">VIP</span><span class="tag tag-g">2 tickets</span></div></div>
+          <div class="l-details"><div class="l-name">Burna Boy — African Giant Tour</div><div class="l-meta">SAT 14 JUN 2026 · 20:00 · Kasarani Stadium, Nairobi</div><div class="l-tags"><span class="tag tag-r">Concert</span><span class="tag tag-g">VIP</span><span class="tag tag-g">2 tickets</span></div><div class="l-mobile-price">KES 5,200</div></div>
           <div class="l-right"><div><div class="l-price">KES 5,200</div><div class="l-seller">@mwangi_ke ⭐4.9</div></div><button class="btn btn-r" style="padding:7px 16px;font-size:.65rem">Buy</button></div>
         </div>
         <div class="l-card" role="button" tabindex="0" data-event="KPL Champions Finals 2026" data-meta="SUN 3 JUL 2026 · 15:00 · Nyayo Stadium, Nairobi" data-ico="⚽" data-price="1400">
           <div class="l-thumb">⚽</div>
-          <div class="l-details"><div class="l-name">KPL Champions Finals 2026</div><div class="l-meta">SUN 3 JUL 2026 · 15:00 · Nyayo Stadium, Nairobi</div><div class="l-tags"><span class="tag tag-l">Sports</span><span class="tag tag-g">Regular</span><span class="tag tag-g">4 tickets</span></div></div>
+          <div class="l-details"><div class="l-name">KPL Champions Finals 2026</div><div class="l-meta">SUN 3 JUL 2026 · 15:00 · Nyayo Stadium, Nairobi</div><div class="l-tags"><span class="tag tag-l">Sports</span><span class="tag tag-g">Regular</span><span class="tag tag-g">4 tickets</span></div><div class="l-mobile-price">KES 1,400</div></div>
           <div class="l-right"><div><div class="l-price">KES 1,400</div><div class="l-seller">@chebet_tz ⭐4.7</div></div><button class="btn btn-r" style="padding:7px 16px;font-size:.65rem">Buy</button></div>
         </div>
         <div class="l-card" role="button" tabindex="0" data-event="AfroFest 2026 — Early Entry" data-meta="FRI 19 JUL 2026 · 17:00 · Uhuru Gardens, Nairobi" data-ico="🎸" data-price="3500">
           <div class="l-thumb">🎸</div>
-          <div class="l-details"><div class="l-name">AfroFest 2026 — Early Entry</div><div class="l-meta">FRI 19 JUL 2026 · 17:00 · Uhuru Gardens, Nairobi</div><div class="l-tags"><span class="tag tag-a">Festival</span><span class="tag tag-g">VIP</span><span class="tag tag-g">1 ticket</span></div></div>
+          <div class="l-details"><div class="l-name">AfroFest 2026 — Early Entry</div><div class="l-meta">FRI 19 JUL 2026 · 17:00 · Uhuru Gardens, Nairobi</div><div class="l-tags"><span class="tag tag-a">Festival</span><span class="tag tag-g">VIP</span><span class="tag tag-g">1 ticket</span></div><div class="l-mobile-price">KES 3,500</div></div>
           <div class="l-right"><div><div class="l-price">KES 3,500</div><div class="l-seller">@akinyi_fm ⭐5.0</div></div><button class="btn btn-r" style="padding:7px 16px;font-size:.65rem">Buy</button></div>
         </div>
         <div class="l-card" role="button" tabindex="0" data-event="Sauti Sol — Farewell Tour" data-meta="SAT 18 OCT 2026 · 19:30 · KICC Grounds, Nairobi" data-ico="🎤" data-price="5800">
           <div class="l-thumb">🎤</div>
-          <div class="l-details"><div class="l-name">Sauti Sol — Farewell Tour</div><div class="l-meta">SAT 18 OCT 2026 · 19:30 · KICC Grounds, Nairobi</div><div class="l-tags"><span class="tag tag-r">Concert</span><span class="tag tag-g">Floor</span><span class="tag tag-g">3 tickets</span></div></div>
+          <div class="l-details"><div class="l-name">Sauti Sol — Farewell Tour</div><div class="l-meta">SAT 18 OCT 2026 · 19:30 · KICC Grounds, Nairobi</div><div class="l-tags"><span class="tag tag-r">Concert</span><span class="tag tag-g">Floor</span><span class="tag tag-g">3 tickets</span></div><div class="l-mobile-price">KES 5,800</div></div>
           <div class="l-right"><div><div class="l-price">KES 5,800</div><div class="l-seller">@omondi_xp ⭐4.8</div></div><button class="btn btn-r" style="padding:7px 16px;font-size:.65rem">Buy</button></div>
         </div>
       </div>
@@ -1672,6 +1851,7 @@ footer {
 ════════════════════════════════════════════════════════════ -->
 <div class="backdrop" id="buyBackdrop" role="dialog" aria-modal="true" aria-labelledby="buyModalTitle">
   <div class="modal" id="buyModal">
+    <div style="width:36px;height:4px;background:var(--line2);border-radius:2px;margin:10px auto 0" aria-hidden="true"></div>
     <div class="modal-hd">
       <span class="modal-hed-title" id="buyModalTitle">Purchase Tickets</span>
       <button class="modal-x" data-close="buyBackdrop" aria-label="Close">✕</button>
@@ -1813,32 +1993,49 @@ const STATE = {
    CURSOR — smooth lag via rAF, not setInterval
 ════════════════════════════════════════════════════════════ */
 (function initCursor() {
-  const dot = document.getElementById('cur-dot');
+  // Only run on true mouse/trackpad devices — never on touch screens
+  if (!window.matchMedia('(pointer:fine)').matches) return;
+
+  const dot  = document.getElementById('cur-dot');
   const ring = document.getElementById('cur-ring');
+  if (!dot || !ring) return;
+
   let mx = -100, my = -100;
   let rx = -100, ry = -100;
 
-  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX;
+    my = e.clientY;
+  });
 
   function tick() {
+    // dot follows mouse instantly
     dot.style.transform  = `translate(${mx - 4}px, ${my - 4}px)`;
+    // ring lags behind
     rx += (mx - rx) * .1;
     ry += (my - ry) * .1;
     ring.style.transform = `translate(${rx - 16}px, ${ry - 16}px)`;
     requestAnimationFrame(tick);
   }
-  tick();
+  requestAnimationFrame(tick);
 
-  // hover detection — delegate to body
+  // Hover effect — only on interactive elements, NOT text/inputs
+  const HOVER_TARGETS = 'button, a, [role=button], [tabindex="0"], select, label';
   document.addEventListener('mouseover', e => {
-    if (e.target.closest('button,a,[role=button],[tabindex]')) {
-      document.body.classList.add('hovering');
-    }
+    if (e.target.closest(HOVER_TARGETS)) document.body.classList.add('hovering');
   });
   document.addEventListener('mouseout', e => {
-    if (e.target.closest('button,a,[role=button],[tabindex]')) {
-      document.body.classList.remove('hovering');
-    }
+    if (e.target.closest(HOVER_TARGETS)) document.body.classList.remove('hovering');
+  });
+
+  // Hide custom cursor when mouse leaves window
+  document.addEventListener('mouseleave', () => {
+    dot.style.opacity  = '0';
+    ring.style.opacity = '0';
+  });
+  document.addEventListener('mouseenter', () => {
+    dot.style.opacity  = '1';
+    ring.style.opacity = '.7';
   });
 })();
 
@@ -2455,6 +2652,19 @@ document.getElementById('cart-btn').addEventListener('click', () => {
 
 document.getElementById('navBurger').addEventListener('click', function() {
   this.classList.toggle('open');
+  document.getElementById('mobileMenu').classList.toggle('open');
+  document.body.style.overflow = this.classList.contains('open') ? 'hidden' : '';
+});
+
+function closeMobileMenu() {
+  document.getElementById('navBurger').classList.remove('open');
+  document.getElementById('mobileMenu').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('mobSellBtn').addEventListener('click', () => {
+  closeMobileMenu();
+  openModal('sellBackdrop');
 });
 
 function updateCart() {
