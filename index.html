@@ -1043,7 +1043,11 @@ footer {
 .success-view h3 { font-family:var(--fhd); font-size:2.2rem; margin-bottom:10px; }
 .success-view p { font-size:.8rem; color:var(--stone); line-height:1.6; max-width:340px; margin:0 auto 24px; }
 .ticket-id { font-size:.65rem; color:var(--stone); margin-top:14px; letter-spacing:.08em; }
-
+@keyframes shimmer {
+  0%   { opacity:.4; }
+  50%  { opacity:.9; }
+  100% { opacity:.4; }
+}
 /* SELL MODAL */
 .sell-steps { display:flex; border-bottom:1px solid var(--line); margin-bottom:24px; }
 .sell-step {
@@ -2266,6 +2270,23 @@ document.querySelectorAll('[data-filter]').forEach(opt => {
     </tr>
   `).join('');
 })();
+// Venue hover enrichment on schedule table
+document.getElementById('scheduleBody').addEventListener('mouseover', async e => {
+  const row = e.target.closest('tr[data-event]');
+  if (!row || row.dataset.wikiLoaded) return;
+  row.dataset.wikiLoaded = 'true'; // only fetch once per row
+
+  const venueCell = row.querySelector('.s-venue');
+  if (!venueCell) return;
+
+  const venueName = venueCell.textContent.trim();
+  const wiki = await fetchWikiData(venueName);
+  if (!wiki?.extract) return;
+
+  venueCell.title = shortenExtract(wiki.extract, 25); // shows as tooltip on hover
+  venueCell.style.borderBottom = '1px dashed var(--rust)';
+  venueCell.style.cursor = 'help';
+});
 
 /* ═══════════════════════════════════════════════════════════
    GROUP BUY — data-driven
@@ -2420,7 +2441,7 @@ function buildPaymentUI() {
 
   const payContent = tab === 'mpesa' ? mpesaHTML : tab === 'card' ? cardHTML : cryptoHTML;
 
-  document.getElementById('buyModalTitle').textContent = ev.name;
+ document.getElementById('buyModalTitle').textContent = ev.name;
   document.getElementById('buyModalBody').innerHTML = `
     <div class="ev-summary">
       <div class="ev-sum-ico">${ev.ico}</div>
@@ -2430,6 +2451,9 @@ function buildPaymentUI() {
       </div>
       <div class="ev-sum-price">KES ${ev.price.toLocaleString()}</div>
     </div>
+
+    <!-- Wikipedia bio loads here automatically -->
+    <div id="wikiBox"></div>
 
     <div class="qty-row">
       <span class="qty-lbl">Tickets</span>
@@ -2459,7 +2483,6 @@ function buildPaymentUI() {
     </button>
     <div class="sec-note"><span class="sec-note-ico">🔒</span>256-bit AES · PCI DSS · Buyer Guarantee</div>
   `;
-
   // bind qty controls
   document.getElementById('qtyDec').addEventListener('click', () => {
     if (STATE.currentQty > 1) { STATE.currentQty--; buildPaymentUI(); }
@@ -2511,15 +2534,18 @@ function openBuyModal(evData) {
   STATE.currentTab   = 'mpesa';
   buildPaymentUI();
   openModal('buyBackdrop');
-}
 
+  // Fetch Wikipedia data after modal renders
+  // Small timeout lets the modal paint first so wikiBox exists in DOM
+  setTimeout(() => enrichModalWithWiki(evData.name), 80);
+}
 function processPayment() {
   // Must be signed in first
-  const user = window.VLTX_AUTH?.currentUser;
+  const user = window.VLTX_AUTH?.currentUser || window._vltxUser;
   if (!user) {
     closeModal('buyBackdrop');
     openModal('authBackdrop');
-    toast('info', 'Please sign in first to complete your purchase.');
+    toast('info', 'Please sign in to complete your purchase.');
     return;
   }
 
@@ -2709,7 +2735,110 @@ function updateCart() {
 
   targets.forEach(el => obs.observe(el));
 })();
+/* ═══════════════════════════════════════════════════════════
+   WIKIPEDIA REAL-TIME DATA
+════════════════════════════════════════════════════════════ */
 
+// Extracts the most relevant search term from an event name
+// e.g. "Burna Boy — African Giant Tour" → "Burna Boy"
+function extractSearchTerm(eventName) {
+  // Take everything before " — " or " - " or " (" or " feat"
+  return eventName
+    .split(/\s[—\-–]\s|\s\(|feat\.|ft\./i)[0]
+    .trim();
+}
+
+// Fetches summary from Wikipedia REST API — no key needed
+async function fetchWikiData(searchTerm) {
+  try {
+    // First try exact title
+    const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchTerm)}`;
+    const res  = await fetch(url);
+    if (!res.ok) throw new Error('not found');
+    const data = await res.json();
+    // Ignore disambiguation pages
+    if (data.type === 'disambiguation') throw new Error('disambiguation');
+    return {
+      extract:   data.extract        || null,
+      image:     data.thumbnail?.source || null,
+      url:       data.content_urls?.desktop?.page || null,
+      title:     data.title          || searchTerm,
+    };
+  } catch {
+    // Fallback — try Wikipedia search API
+    try {
+      const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchTerm)}&format=json&origin=*&srlimit=1`;
+      const searchRes  = await fetch(searchUrl);
+      const searchData = await searchRes.json();
+      const firstResult = searchData?.query?.search?.[0];
+      if (!firstResult) return null;
+      // Fetch the actual summary for the first result
+      const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(firstResult.title)}`;
+      const summaryRes  = await fetch(summaryUrl);
+      if (!summaryRes.ok) return null;
+      const summaryData = await summaryRes.json();
+      return {
+        extract: summaryData.extract        || null,
+        image:   summaryData.thumbnail?.source || null,
+        url:     summaryData.content_urls?.desktop?.page || null,
+        title:   summaryData.title          || firstResult.title,
+      };
+    } catch {
+      return null; // silently fail — never break the UI
+    }
+  }
+}
+
+// Shortens extract to a readable length
+function shortenExtract(text, maxWords = 45) {
+  if (!text) return null;
+  const words = text.split(' ');
+  if (words.length <= maxWords) return text;
+  return words.slice(0, maxWords).join(' ') + '…';
+}
+
+// Renders wiki data into the modal after it loads
+async function enrichModalWithWiki(eventName) {
+  const wikiBox = document.getElementById('wikiBox');
+  if (!wikiBox) return;
+
+  // Show skeleton loader
+  wikiBox.innerHTML = `
+    <div style="display:flex;gap:10px;align-items:center;padding:12px 0">
+      <div style="width:48px;height:48px;border-radius:4px;background:var(--line2);flex-shrink:0;animation:shimmer 1.4s infinite"></div>
+      <div style="flex:1">
+        <div style="height:10px;background:var(--line2);border-radius:2px;width:60%;margin-bottom:8px;animation:shimmer 1.4s infinite"></div>
+        <div style="height:10px;background:var(--line2);border-radius:2px;width:90%;margin-bottom:6px;animation:shimmer 1.4s infinite"></div>
+        <div style="height:10px;background:var(--line2);border-radius:2px;width:75%;animation:shimmer 1.4s infinite"></div>
+      </div>
+    </div>`;
+
+  const term = extractSearchTerm(eventName);
+  const wiki = await fetchWikiData(term);
+
+  if (!wiki || !wiki.extract) {
+    wikiBox.innerHTML = ''; // nothing to show — hide silently
+    return;
+  }
+
+  const shortText = shortenExtract(wiki.extract);
+
+  wikiBox.innerHTML = `
+    <div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">
+      <div style="font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--stone);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        About · Wikipedia
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        ${wiki.image ? `<img src="${wiki.image}" alt="${wiki.title}" style="width:52px;height:52px;border-radius:4px;object-fit:cover;flex-shrink:0;border:1px solid var(--line2)">` : ''}
+        <div style="flex:1;min-width:0">
+          <div style="font-family:var(--fhd);font-size:1rem;color:var(--bone);margin-bottom:5px">${wiki.title}</div>
+          <div style="font-size:.74rem;color:var(--stone);line-height:1.6">${shortText}</div>
+          ${wiki.url ? `<a href="${wiki.url}" target="_blank" rel="noopener noreferrer" style="font-size:.65rem;color:var(--rust);letter-spacing:.06em;margin-top:6px;display:inline-block;text-decoration:none">Read more on Wikipedia →</a>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
 /* ═══════════════════════════════════════════════════════════
    TOAST — queue-managed, no overlapping
 ════════════════════════════════════════════════════════════ */
@@ -3014,6 +3143,9 @@ function toast(type, msg) {
      Updates the nav button live.
   ════════════════════════════════════════════ */
   onAuthStateChanged(auth, user => {
+    // Cache user on window so regular script can access it
+    window._vltxUser = user || null;
+
     const btn = document.getElementById('authBtn');
     if (user) {
       // User is signed in
